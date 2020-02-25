@@ -1,0 +1,716 @@
+import glob
+import re
+import sys
+from os.path import join
+
+
+###############################################################################
+###############################################################################
+# Adapt here so you can get all read pairs and ref:
+#--------------------------------------------------
+configfile: 'SupplementaryFile/config.json'
+# directory contained fasta files
+data_directory=config["datadir"]
+
+# Out directory
+output_directory = config["OutDir"]
+
+# RNAseq directory
+rna_seq_directory=config["RnaSeqDir"]
+RNAseq = rna_seq_directory
+
+# file termination
+suffixFileR1 = '_R1.fastq.gz'
+suffixFileR2 = '_R2.fastq.gz'
+suffixFile = '.fasta'
+
+# Identifiant de l'espèce
+id_souche = config["id_souche"]
+################################################################################
+################################################################################
+
+
+################################################################################
+# Config file for TOOGLE
+configFile = 'SupplementaryFile/tophatMapping.config.txt' # A mettre dans l'outils
+# Path to protein annotation file
+protRef = config["protRef"]# A mettre dans l'outils
+prot = protRef
+################################################################################
+# TODO parseur config pour verif + argparse ?
+# TODO suffix RNAseq, soit paramètre soit mv/ln ?
+
+#################################################################################
+
+log_directory = config["OutDir"] + 'LOGS/'
+
+SAMPLES, = glob_wildcards(data_directory+"{smp}"+suffixFileR1)
+RNA, = glob_wildcards(rna_seq_directory+"{rna}.fq.gz") # Warning, they haven't suffix variable for retrieve all RNAseq but they can retrieve  a file which aren't a RNAseq file
+kmere = [20,30,40,50,60,70,80,90]
+rule final:
+	input: 
+		final_data = expand(f'{output_directory}Annotation/6_final_data/{{smp}}/', smp = SAMPLES),
+		report_assembly = f'{output_directory}Assembly/2_report/report.html',
+		report_annotation = output_directory+'Annotation/7_report/report.html'
+
+rule ABySS_Launch:
+	"""
+	Launch ABySS with kmère 20,30,40,50,60,70,80,90
+	"""
+	threads : 1
+	input:
+		R1 = f'{data_directory}{{smp}}{suffixFileR1}',
+		R2 = f'{data_directory}{{smp}}{suffixFileR2}'
+	output:
+		directory = directory(f'{output_directory}Assembly/1_ABySS/{{smp}}/{{smp}}_{{km}}/')
+	params :
+		suffix = suffixFileR1
+	log :
+		output = f'{log_directory}ABySS/{{smp}}_{{km}}.o',
+		error = f'{log_directory}ABySS/{{smp}}_{{km}}.e'
+	message :
+		"""
+		Function : 
+			- Launch ABySS for {wildcards.smp} with {wildcards.km} kmère in option
+		Input : 
+			- R1 : {input.R1}
+			- R2 : {input.R2}
+		Ouput : 
+			- {output.directory}
+		"""+ "*" *100
+	shell :
+		"""
+		module load bioinfo/abyss/1.9.0 1> {log.output} 2> {log.error}
+		cd {output} 1>> {log.output} 2>> {log.error}
+		/usr/local/bioinfo/abyss/1.9.0/bin/abyss-pe name={wildcards.smp}_{wildcards.km} k={wildcards.km} in='{input.R1} {input.R2}' -o {output}abyss_assembly_{wildcards.smp}_{wildcards.km}.fasta 1>> {log.output} 2>> {log.error}
+		"""
+
+rule recup_stat :
+	"""
+	This rule retrieve all quality statistics of previous assembly
+	"""
+	threads : 1
+	input :
+		lien = expand(rules.ABySS_Launch.output.directory,smp = "{smp}",km = kmere),
+	output :
+		quality_file = f'{output_directory}Assembly/3_report/data_report/{{smp}}/Quality.txt'
+	params :
+		outdir = f'{output_directory}Assembly/1_ABySS/{{smp}}/'
+	message :
+		"""
+		Function : 
+			- Retrieve all quality statistics of previous assembly
+		Input : 
+			- directory : {params.outdir}
+		Ouput : 
+			- {output.quality_file}
+		"""+ "*" *100
+	shell :
+		"""
+		script/Quality.py -d {params.outdir} -o {output.quality_file}
+		"""
+
+rule summary_stat :
+	"""
+	This rule concat all quality statistics retrieve with the recup_stat rules
+	"""
+	threads : 1
+	input :
+		stat_files = expand(rules.recup_stat.output.quality_file,smp = SAMPLES)
+	output :
+		output_directory = f'{output_directory}Assembly/2_report/data_report/Quality.txt'
+	message :
+		"""
+		Function : 
+			- Concat all quality statistics retrieved with the recup_stat rules
+		Input : 
+			- directory : {input.stat_files}
+		Ouput : 
+			- {output.output_directory}
+		"""+ "*" *100
+	run :
+		with open(output.output_directory,'w') as output_file :
+			output_file.write("n\tn:500\tL50\tmin\tN80\tN50\tN20\tE-size\tmax\tsum\tname\n")
+			for file in input.stat_files :
+				with open(file,'r') as input_file :
+					entete = input_file.readline()
+					for line in input_file :
+						output_file.write(line)
+
+
+rule report_assembly:
+	"""
+	This rule create a html report of all assembly quality
+	"""
+	threads : 1
+	input :
+		quality_file = rules.summary_stat.output.output_directory
+	output :
+		report = rules.final.input.report_assembly,
+		select = f'{output_directory}Assembly/2_report/data_report/select.csv'
+	message :
+		"""
+		Function : 
+			- Create a html report of all assembly quality
+		Input : 
+			- directory : {input.quality_file}
+		Ouput : 
+			- {output.report}
+		"""+ "*" *100
+	shell :
+		"""
+		module purge
+		module load bioinfo/R/3.4.3
+		Rscript -e 'rmarkdown::render("script/report_assemblage.Rmd", output_file="{output.report}", quiet=TRUE, params = list(quality = "{input.quality_file}"))'
+		"""
+
+rule select_assemblage :
+	threads : 1
+	input :
+		file = rules.recup_stat.output.quality_file
+	output :
+		assembly_selected = f"{output_directory}Assembly/3_assembly_selected/{{smp}}.fasta"
+	run :
+		dico_N50 = {}
+		with open(input.file,'r') as  input_file :
+			entete = input_file.readline()
+			for line in input_file :
+				dico_N50[line.split('\t')[5]] = line.split('\t')[-1].replace('\n','') # Permet de faire un dico avec comme clé le N50 et en value le fichier correspondant
+
+		N50_max = max(dico_N50.keys())
+		fasta_select = dico_N50[N50_max]
+		new_name_fasta  = fasta_select.split('_')[0]
+		path_fasta = f'{output_directory}1_ABySS/{new_name_fasta}/{fasta_select.split("-scaffolds")[0]}/{fasta_select}'
+		path_new_fasta = output.assembly_selected
+		os.system('cp %s %s'%(path_fasta,path_new_fasta))
+
+
+
+rule repeatMasker:
+	"""
+	This rule use repeatMasker for mask repeat element
+	"""
+	threads : 4
+	input :
+		fasta = rules.select_assemblage.output.assembly_selected
+	output :
+		directory = directory(f'{output_directory}Assembly/4_masked/{{smp}}/')
+	params :
+		Et_data_base = config["ET_data_base"]
+	message :
+		"""
+		Function : 
+			- Use repeatMasker on {wildcards.smp}  for mask repeat element
+		Input : 
+			- fasta : {input.fasta}
+		Ouput : 
+			- {output.directory}
+		"""+ "*" *100
+	shell :
+		"""
+		module load bioinfo/RepeatMasker/4.0.7
+		RepeatMasker -gff -pa 4 -s -no_is {input.fasta} -lib {params.Et_data_base} -e ncbi -dir {output.directory}
+		"""
+
+rule renameFile:
+	"""
+	This rule renames fasta output of repeatMasker rule
+	"""
+	threads : 4
+	input :
+		directory = rules.repeatMasker.output.directory
+	output :
+		fasta = f'{output_directory}5_assembly_final/{{smp}}.fasta',
+	message :
+		"""
+		Function : 
+			- Renames fasta output of repeatMasker rule for {wildcards.smp}
+		Input : 
+			- fasta : {input.directory}
+		Ouput : 
+			- {output.fasta}
+		"""+ "*" *100
+	shell :
+		"""
+		script/formatFastaName.py -f {input.directory}{wildcards.smp}.fasta.masked -k g -l 500 -o {output.fasta}
+		"""
+
+
+rule hisat2_index :
+	"""
+	This rules is used to build index of each reference for launch hisat2 alignement.
+	"""
+	threads : 1
+	input :
+		reference_fasta = rules.renameFile.output.fasta
+	output : 
+		new_reference_fasta = f"{output_directory}Annotation/1_hisat2/0_reference_fasta/{{smp}}{suffixFile}"
+	params : 
+		reference_index_output =  f"{output_directory}Annotation/1_hisat2/0_reference_fasta/{{smp}}", # This line is used in command, the tools want a prefix and not the entire file name
+		l_mem_free='4G'
+	message : 
+		"""
+		Function : out_directory
+			- Build index for {wildcards.smp} reference
+		Input : 
+			- Reference : {input.reference_fasta}
+		Ouput : 
+			- {output.new_reference_fasta}
+			- {params.reference_index_output}
+		"""+ "*" *100
+	shell :
+		"""
+		module load bioinfo/hisat2/2.1.0
+		cp {input.reference_fasta} {output.new_reference_fasta}
+		hisat2-build {output.new_reference_fasta} {params.reference_index_output}
+		"""
+
+rule hisat2_alignement :
+	"""
+	This rule launch hisat2 for each fasta reference with each RNAseq single-end samples
+	"""
+	threads : 1
+	input : 
+		reference = rules.hisat2_index.output.new_reference_fasta,
+		rna_seq = f"rna_seq_directory{{rna}}.fq.gz"
+
+	output : 
+		sam =   f"{output_directory}Annotation/1_hisat2/1_alignement/{{smp}}/{{rna}}/{{smp}}_{{rna}}.sam",
+		stdout =  f"{output_directory}Annotation/1_hisat2/1_alignement/{{smp}}/{{rna}}/Summary_alignement.txt"
+	params :
+		l_mem_free='10G',
+		basename =  f"{output_directory}Annotation/1_hisat2/0_reference_fasta/{{smp}}"
+	message :
+		"""
+		Function : 
+			- Align {wildcards.rna} on {wildcards.smp} reference
+		Input : 
+			- Reference : {input.reference}
+			- RNAseq : {input.rna_seq}
+		Ouput : 
+			- sam file : {output.sam}
+			- summary alignement : {output.stdout}
+		""" + "*" *100
+	shell :
+		"""
+		module load bioinfo/hisat2/2.1.0
+		hisat2 -x {params.basename} --summary-file {output.stdout} -U {input.rna_seq} -S {output.sam}  
+		"""
+
+rule samtools :
+	"""
+	This rule used samtools view for change sam file to bam file and samtools sort for sort the bam file
+	"""
+	threads : 1
+	input :
+		sam_file = rules.hisat2_alignement.output.sam
+	output :
+		bam = f"{output_directory}Annotation/1_hisat2/1_alignement/{{smp}}/{{rna}}/{{smp}}_{{rna}}.bam",
+		sort = f"{output_directory}Annotation/1_hisat2/1_alignement/{{smp}}/{{rna}}/{{smp}}_{{rna}}_sort.bam"
+	params : 
+		l_mem_free='10G'
+	message :
+		"""
+		Function : 
+			- Create and sort  {wildcards.smp}_{wildcards.rna}_sort.bam
+		Input : 
+			- sam file : {input.sam_file}
+		Ouput : 
+			- bam file sorted : {output.sort}
+		""" + "*" *100
+	shell :
+		"""
+		module load bioinfo/samtools/1.9
+		samtools view -b {input.sam_file} > {output.bam}
+		samtools sort -o {output.sort} {output.bam}
+		"""
+
+rule merge_bam :
+	"""
+	This rules merge all bam by reference file 
+	"""
+	threads : 1
+	input : 
+		bam = expand(rules.samtools.output.sort,rna=RNA,smp = "{smp}")
+	output : 
+		all_bam =  f"{output_directory}Annotation/1_hisat2/2_merge_bam_file/{{smp}}/{{smp}}.bam"
+	params : 
+		directory_bam = f"{output_directory}Annotation/1_hisat2/1_alignement/{{smp}}/", # Snakemake won't input file and directory file if the input file is in the directory, so the directory is give in params
+		l_mem_free='4G'
+	message :
+		"""
+		Function : 
+			- Merge all bam for {wildcards.smp} reference
+		Input : 
+			- bam file : {input.bam}
+		Ouput : 
+			- bam merge : {output.all_bam}
+		""" + "*" *100
+	shell :
+		"""
+		module purge
+		module load bioinfo/samtools/1.3
+		cd {params.directory_bam}
+		ls */*_sort.bam > bamList
+		samtools merge -f -b bamList -c {output}
+		"""
+
+rule sort_bam :
+	"""
+	This rules used samtools sort for sort the merged bam file
+	"""
+	threads : 1
+	input : 
+		bam_file = rules.merge_bam.output.all_bam
+	output : 
+		bam_sort = f"{output_directory}Annotation/1_hisat2/2_merge_bam_file/{{smp}}/{{smp}}_sort.bam"
+	params :
+		l_mem_free='20G'
+	message :
+		"""
+		Function : 
+			- Sorted the merged bam for {wildcards.smp} reference
+		Input : 
+			- bam file : {input.bam_file}
+		Ouput : 
+			- bam merge : {output.bam_sort}
+		""" + "*" *100
+	shell:
+		"""
+		module purge
+		module load bioinfo/picard-tools/2.7.0
+		java -jar /usr/local/bioinfo/picard-tools/2.7.0/picard.jar SortSam I={input.bam_file} O={output.bam_sort} SORT_ORDER=coordinate
+		"""
+
+rule bam2hints :
+	"""
+	This rules convert merged bam file of {wildcards.smp} into a hint file for AUGUSTUS and BRAKER
+	"""
+	threads : 1
+	input : 
+		bam_file_sorted = rules.sort_bam.output.bam_sort
+	output :
+		hints =  f"{output_directory}Annotation/1_hisat2/2_merge_bam_file/{{smp}}/hints_{{smp}}.raw.bam"
+	params : 
+		l_mem_free='4G'
+	message :
+		"""
+		Function : 
+			- Convert merged bam file of {wildcards.smp} into a hint file for AUGUSTUS and BRAKER
+		Input : 
+			- bam file : {input.bam_file_sorted}
+		Ouput : 
+			- hints file : {output.hints}
+		""" + "*" *100
+	shell:
+		"""
+		module purge
+		module load bioinfo/braker/1.9
+		bam2hints --minintronlen=10 --maxintronlen=1000 --maxgaplen=9 --source=M --exonhints --in={input.bam_file_sorted} --out={output.hints}
+		"""
+
+rule bam2hints_filter :
+	"""
+	This rules filter hint file outcome of bam file
+	"""
+	threads : 1
+	input : 
+		hints = rules.bam2hints.output.hints
+	output : 
+		hints_filtred = f'{output_directory}Annotation/2_hints/RNAseq_hints/hints_{{smp}}.filtered.gff'
+	params : 
+		path = f"{output_directory}Annotation/1_hisat2/2_merge_bam_file/{{smp}}/",
+		l_mem_free='4G'
+	message :
+		"""
+		Function : 
+			- Filter hint file outcome of bam file for {wildcards.smp}
+		Input : 
+			- hints file : {input.hints}
+		Ouput : 
+			- hints filtred file : {output.hints_filtred}
+		""" + "*" *100
+	shell:
+		"""
+		script/filterHintsSnake.r -s {wildcards.smp} -p {params.path}/ -o {output.hints_filtred}
+		"""
+
+rule exonerate :
+	"""
+	This rules execut exonerate alignement and convert alignement into hints fil
+	"""
+	threads : 2
+	input : 
+		protRef = protRef,
+		file = rules.hisat2_index.output.new_reference_fasta
+
+	output: 
+		exonerate = f'{output_directory}Annotation/2_hints/ProtHints/exonerate_{{smp}}.gff3',
+		hints = f'{output_directory}Annotation/2_hints/ProtHints/exonerate_{{smp}}.hints.gff3'
+	params : 
+		l_mem_free='20G'
+	message :
+		"""
+		Function : 
+			- Executing exonerate alignement and convert alignement into hints file for {wildcards.smp}
+		Input : 
+			- protein reference fasta file : {input.protRef}
+		Ouput : 
+			- hints : {output.hints}
+		""" + "*" *100
+	shell:
+		"""
+		module purge
+		module load bioinfo/exonerate/2.4.7
+		module load bioinfo/braker/1.9
+		exonerate --model protein2genome --percent 95 --showtargetgff T {input.protRef} {input.file} > {output.exonerate}
+		exonerate2hints.pl --source=M --minintronlen=10 --maxintronlen=1000 --in={output.exonerate} --out={output.hints}
+		"""	
+
+def input_hints(wildards):
+	"""
+	Launch or not RNAseq and Prot analysis depending on the presence of data
+	"""
+	if RNAseq != "" and prot != "" :
+		return({'rnaseq' : rules.bam2hints_filter.output.hints_filtred ,
+				'prot' : rules.exonerate.output.hints})
+	elif RNAseq == "" :
+		return({'prot' : rules.exonerate.output.hints})
+	else :
+		return({'rnaseq' : rules.bam2hints_filter.output.hints_filtred})
+
+rule merge_hint:
+	"""
+	This rules merge hints outcome of RNAseq with hints outcome of proteine alignement
+	"""
+	threads : 1
+	input: 
+		unpack(input_hints)
+	output: 
+		merge = f'{output_directory}Annotation/2_hints/MergeHints/{"Protein" if RNAseq == "" else "RNAseq" if prot == "" else "RNAseq_protein"}.hints_{{smp}}.gff',
+		merge_intron = f'{output_directory}Annotation/2_hints/MergeHints/{"Protein" if RNAseq == "" else "RNAseq" if prot == "" else "RNAseq_protein"}.hints.intron_{{smp}}.gff'
+	params: 
+		l_mem_free = '4G'
+	message :
+		"""
+		Function : 
+			- Merge hints outcome of RNAseq with hints outcome of proteine alignement for {wildcards.smp}.
+		Input : 
+			- RNAseq hints : {input.rnaseq}
+			- protein hints : {input.prot}
+		Ouput : 
+			- all hints : {output.merge}
+			- hints of intron :  {output.merge_intron}
+		""" + "*" *100
+	shell: 
+		"""
+		cat {input.rnaseq} {input.prot}  > {output.merge}
+		awk '/intron/' {output.merge} > {output.merge_intron}
+		"""
+
+
+rule BRAKER :
+	"""
+	This rules execute BRAKER for annotation
+	"""
+	threads : 2
+	input : 
+		genome = rules.hisat2_index.output.new_reference_fasta,
+		hints = rules.merge_hint.output.merge_intron
+	output : 
+		directory = directory(f'{output_directory}Annotation/3_Braker/{{smp}}/')
+	params : 
+		l_mem_free='10G',
+		species = id_souche
+	message :
+		"""
+		Function : 
+			- Execute BRAKER for {wildcards.smp}
+		Input : 
+			- Genome file : : {input.genome}
+			- hints file : {input.hints}
+		Ouput : 
+			- Directory output : {output.directory}
+		""" + "*" *100
+	shell :
+		"""
+		module load bioinfo/braker/1.9
+		braker.pl --cores 2 --fungus --gff3 --species={params.species} --useexisting --genome={input.genome} --hints={input.hints} --overwrite --alternatives-from-evidence=false --workingdir={output.directory}
+		"""
+
+rule augustus :
+	"""
+	This rules execute augustus for annotation
+	"""
+	threads : 2
+	input :  
+		hints = rules.merge_hint.output.merge , 
+		genome = rules.hisat2_index.output.new_reference_fasta,
+	output : 
+		gff_file = f'{output_directory}Annotation/4_Augustus/{{smp}}.gff3'
+	params : 
+		l_mem_free='4G',
+		species = id_souche
+	message :
+		"""
+		Function : 
+			- Execute augustus for {wildcards.smp}.
+		Input : 
+			- Genome file : : {input.genome}
+			- hints file : {input.hints}
+		Ouput : 
+			- gff file : {output.gff_file}
+		""" + "*" *100
+	shell : """
+	module purge
+	module load bioinfo/augustus/3.3.1
+	augustus --hintsfile={input.hints} --species={params.species} {input.genome} --gff3=on --outfile={output.gff_file}
+	"""
+
+def input_gff(wildards):
+	"""
+	Launch or not braker depending on the presence of RNAseq data
+	"""
+	if RNAseq != "" :
+		return({'augustus' : rules.augustus.output.gff_file ,
+				'braker' : rules.BRAKER.output.directory})
+	else :
+		return({'augustus' : rules.augustus.output.gff_file})
+
+
+
+rule merge_gff:
+	"""
+	This rules merge and rename Braker and Augustus output
+	"""
+	threads : 1
+	input : 
+		unpack(input_gff)
+	output :
+		merge_gff =  f'{output_directory}Annotation/5_merged_gff/{{smp}}_{"Augustus" if RNAseq == "" else "merge"}.gff3'
+	params : 
+		l_mem_free='4G',
+		species = id_souche
+	message :
+		"""
+		Function : 
+			- Merge and rename Braker and Augustus output {wildcards.smp}.
+		Input : 
+			- augustus file : : {input.augustus}
+			- braker directory : {input.braker}
+		Ouput : 
+			- gff file : {output.merge_gff}
+		""" + "*" *100
+	shell :
+		 """
+		script/mergeBraker_augustus.py  --augustus {input.augustus} --braker {input.braker}/braker/{params.species}/augustus.gff3 -o {output.merge_gff}
+		"""
+
+rule createFasta:
+	"""
+	This create fasta file from gff file
+	"""
+	threads : 1
+	input : 
+		gff = rules.merge_gff.output.merge_gff,
+		fasta = rules.hisat2_index.output.new_reference_fasta
+	output : 
+		fasta_directory = f'{output_directory}Annotation/6_final_data/{{smp}}/'
+ 		
+	params :
+		l_mem_free='4G'
+	message :
+		"""
+		Function : 
+			- Create fasta file from gff file of {wildcards.smp}
+		Input : 
+			- gff file : : {input.gff}
+			- fasta file : {input.fasta}
+		Ouput : 
+			- fasta directory  :{output.fasta_directory}
+		""" + "*" *100
+	shell :
+		"""
+		script/gff2fasta.pl --gff {input.gff} --fasta {input.fasta} --prefix {output.fasta_directory}{wildcards.smp}
+		cp {input.gff} {output.fasta_directory}
+		script/renameFasta.py -d {output.fasta_directory} -s {wildcards.smp}
+		"""
+
+
+
+rule recuperation_Stat:
+	"""
+	This rule retrieve quality statistics from assembly and annotation
+	"""
+	threads : 1
+	input : 
+		assembly = data_directory,
+		outdir = output_directory,
+		lien = expand(f'{output_directory}Annotation/5_merged_gff/{{smp}}_{"Augustus" if RNAseq == "" else "merge"}.gff3',smp = SAMPLES)
+
+	output : 
+		assembly = f'{output_directory}Annotation/7_report/data_report/Assembly_quality.csv',
+		annotation = f'{output_directory}Annotation/7_report/data_report/Annotation_stat.csv'
+	params : 
+		l_mem_free='4G'
+	message :
+		"""
+		Function : 
+			- Retrieve quality statistics from assembly and annotation
+		Input : 
+			- assembly directory : : {input.assembly}
+			- annotation directory : {input.outdir}
+		Ouput : 
+			- result file   : 
+				* {output.annotation}
+				* {output.assembly}
+		""" + "*" *100
+	shell : 
+		"""
+		module purge
+		script/QualityAssemblage.py -d {input.assembly} -o {output.assembly}
+		script/RecupInfoGFF.py -d {input.outdir}4_mergeGFF/ -o {output.annotation} -g {input.assembly}
+		"""
+
+
+rule report:
+	"""
+	This rule generate rapport in html with annotation and assembly quality
+	"""
+	threads : 1
+	input: 
+		assembly = rules.recuperation_Stat.output.assembly,
+		annotation = rules.recuperation_Stat.output.annotation
+
+	output: 
+		report = rules.final.input.report_annotation
+	params :
+		l_mem_free='4G'
+	message :
+		"""
+		Function : 
+			- Generate rapport in html with annotation and assembly quality of all samples
+		Input : 
+			- assembly quality file : : {input.assembly}
+			- annotation quality file : {input.annotation}
+		Ouput : 
+			- fasta directory  :{output}
+		""" + "*" *100
+	shell :
+		"""
+		module purge
+		module load bioinfo/R/3.4.3
+		Rscript -e 'rmarkdown::render("script/report.Rmd", output_file="{output}", quiet=TRUE, params = list(assembly = "{input.assembly}", Annotation = "{input.annotation}"))'
+		"""
+		
+
+
+
+
+
+
+
+
+
+
+
