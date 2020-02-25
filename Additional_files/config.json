@@ -1,0 +1,10 @@
+
+{
+		"datadir"	: "/homedir/charriat/work/Test_script/test_annotation/fastq/",
+		"OutDir"	: "/homedir/charriat/work/Test_script/test_annotation/result/",
+		"RnaSeqDir"	: "",
+		"id_souche"	: "magnaporthe_oryzae",
+		"protRef"	: "/homedir/charriat/data_flo/Script/Cluster/Annotation_pipeline_v2/SupplementaryFile/OG_filter.fasta", 
+		"ET_data_base"	: "/homedir/charriat/data_flo/ET_db.fasta"
+}
+	

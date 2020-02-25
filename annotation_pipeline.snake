@@ -8,7 +8,7 @@ from os.path import join
 ###############################################################################
 # Adapt here so you can get all read pairs and ref:
 #--------------------------------------------------
-configfile: 'config.json'
+configfile: 'Additional_files/config.json'
 # directory contained fasta files
 data_directory= config["datadir"]
 
@@ -28,7 +28,8 @@ suffixFile = '.fasta'
 id_souche = config["id_souche"]
 ################################################################################
 ################################################################################
-# Todo : Faire les logs, les configs cluster, et un singularity pour Hisat/samtools (mapping) et un controleur du fichier de config
+# Todo : Faire les logs, les configs cluster, et un controleur du fichier de config
+# Todo : Chagement BRAKER car containers, avoir le fichier species de augustus dans le output directory et mettre un lien path ! (Problème de droit avec singularity)
 
 ################################################################################
 # Config file for TOOGLE
@@ -191,7 +192,7 @@ rule repeatMasker:
 	"""
 	This rule use repeatMasker for mask repeat element
 	"""
-	threads : 4
+	threads : 1
 	input :
 		fasta = rules.select_assemblage.output.assembly_selected
 	output :
@@ -218,7 +219,7 @@ rule renameFile:
 	"""
 	This rule renames fasta output of repeatMasker rule
 	"""
-	threads : 4
+	threads : 1
 	input :
 		directory = rules.repeatMasker.output.directory
 	output :
@@ -250,6 +251,8 @@ rule hisat2_index :
 	params : 
 		reference_index_output =  f"{output_directory}Annotation/1_hisat2/0_reference_fasta/{{smp}}", # This line is used in command, the tools want a prefix and not the entire file name
 		l_mem_free='4G'
+	singularity:
+		"shub://FlorianCHA/singularity_containers:hisat2"
 	message : 
 		"""
 		Function : out_directory
@@ -281,6 +284,8 @@ rule hisat2_alignement :
 	params :
 		l_mem_free='10G',
 		basename =  f"{output_directory}Annotation/1_hisat2/0_reference_fasta/{{smp}}"
+	singularity:
+		"shub://FlorianCHA/singularity_containers:hisat2"
 	message :
 		"""
 		Function : 
@@ -309,6 +314,8 @@ rule samtools :
 		sort = f"{output_directory}Annotation/1_hisat2/1_alignement/{{smp}}/{{rna}}/{{smp}}_{{rna}}_sort.bam"
 	params : 
 		l_mem_free='10G'
+	singularity:
+		"shub://FlorianCHA/singularity_containers:hisat2"
 	message :
 		"""
 		Function : 
@@ -336,6 +343,8 @@ rule merge_bam :
 	params : 
 		directory_bam = f"{output_directory}Annotation/1_hisat2/1_alignement/{{smp}}/", # Snakemake won't input file and directory file if the input file is in the directory, so the directory is give in params
 		l_mem_free='4G'
+	singularity:
+		"shub://FlorianCHA/singularity_containers:hisat2"
 	message :
 		"""
 		Function : 
@@ -363,6 +372,8 @@ rule sort_bam :
 		bam_sort = f"{output_directory}Annotation/1_hisat2/2_merge_bam_file/{{smp}}/{{smp}}_sort.bam"
 	params :
 		l_mem_free='20G'
+	singularity:
+		"shub://FlorianCHA/singularity_containers:hisat2"
 	message :
 		"""
 		Function : 
