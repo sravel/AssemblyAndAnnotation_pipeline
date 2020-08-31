@@ -1,8 +1,3 @@
-queue :
-  long : "-p long"
-  normal : "-p normal"
-
-
 __default__:
     n_cpu: "--ntasks=1 --cpus-per-task="
     mem: "--mem-per-cpu=4G"
@@ -19,7 +14,7 @@ __default__:
 
 ###### Cluster parameters for ABySS_Launch rules ########
 ABySS_Launch :
-  mem: "--mem-per-cpu=4G"
+  mem: "--mem-per-cpu=20G"
 
 ###### Cluster parameters for recup_stat rules ########
 recup_stat :
@@ -38,8 +33,8 @@ summary_stat :
   mem: "--mem-per-cpu=4G"
 
 ###### Cluster parameters for repeatMasker rules ########
-summary_stat :
-  mem: "--mem-per-cpu=4G"
+repeatMasker :
+  mem: "--mem-per-cpu=5G"
 
 ###### Cluster parameters for renameFile rules ########
 renameFile :
@@ -52,7 +47,7 @@ hisat2_index :
 ###### Cluster parameters for hisats2_alignement rules ########
 hisat2_alignement:
   mem: "--mem-per-cpu=10G"
-  queue:  "-p normal"
+  queue:  "-p long"
 
 ###### Cluster parameters for samtools rules ########
 samtools :
@@ -97,7 +92,7 @@ merge_gff :
 ###### Cluster parameters for createFasta rules ########
 createFasta:
   mem: "--mem-per-cpu=4G"
-  queue: "-p normal"
+  queue: "-p fast"
 
 ###### Cluster parameters for recuperation_Stat rules ########
 recuperation_Stat:
@@ -106,4 +101,4 @@ recuperation_Stat:
 ###### Cluster parameters for report rules ########
 report:
   mem: "--mem-per-cpu=4G"
-  queue: "-p normal"
+  queue: "-p fast"
