@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3.7
 # -*- coding: utf-8 -*-
 # @package RecupInfoGFF.py
 # @author Florian Charriat

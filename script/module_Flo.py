@@ -1,8 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3.7
 # -*- coding: utf-8 -*-
-# @package module_Flo.py
 # @author Florian Charriat
-#__docformat__ = "restructuredtext en"
 
 """
 	The module_Flo module

@@ -1,4 +1,4 @@
-#!/usr/local/bioinfo/R/3.2.2/bin/Rscript --vanilla
+#!/usr/bin/env Rscript 
 # -*- coding: utf-8 -*-
 
 library("optparse")

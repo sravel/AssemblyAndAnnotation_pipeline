@@ -1,41 +1,40 @@
-#!/usr/bin/python
+#!/usr/bin/env python3.7
 # -*- coding: utf-8 -*-
-# @package QualityAssemblage.py
+# @package ABYSS_launch.py
 # @author Florian Charriat
 
 """
-	The QualityAssemblage script
-	============================
-	:author: Charriat Florian
-	:contact: florian.charriat@inra.fr
-	:date: 23/05/2018
+	The Quality script
+	==================
+
+	:author: CHARRIAT Florian\n
+	:contact: florian.charriat@inra.fr\n
+	:date: 9/03/2018\n
 	:version: 0.1
 
 	Script description
 	------------------
 
-	This program is used to check assembly quality
+	This program is used to retrieve quality data of all the assemblies done by the script ABYSS_launch
 
 	Example
 	-------
 
-	>>> QualityAssemblage.py -d /homedir/user/work/dataAssemblt/ -o /homedir/user/work/result.txt
+	>>> Quality.py -d /homedir/user/work/data/result/ -o /homedir/user/work/quality
 
 	Help Programm
 	-------------
 
 	optional arguments:
 		- \-h, --help
-						show this help 	message and exit
+						show this help message and exit
 		- \-v, --version
-						display QualityAssemblage.py version number and exit
-						
+						display Quality.py version number and exit
 	Input mandatory infos for running:
 		- \-d <path/to/directory>, --directory <path/to/directory>
-						path of directory that contains all the assembly files
-						
-		- \-o <path/to/output/file>, --outdirPath <path/to/output/file>
-						path of the output file
+						path of directory that contains all the fasta assembled by ABYSS_launch (output + result)
+		- \-o <path/to/output/directory>, --outFilePath <path/to/output/directory>
+						path of the output directory
 
 """
 
@@ -45,111 +44,84 @@
 import argparse, os, sys
 
 #Import module_Flo
-from module_Flo import verifDir, createDir , form , verifFichier , isFasta , recupId,fasta2dict,sort_human
+from module_Flo import verifDir, createDir , form , verifFichier
+
 
 
 if __name__ == "__main__":
 
-	version="0.1" 
+	version = '0.1'
 	
 ############ Argparse #####################
-	parser = argparse.ArgumentParser(prog=__file__, description='''TThis program is used to check assembly quality ''')
+	parser = argparse.ArgumentParser(prog=__file__, description='''This program is used to retrieve the quality data of the assembly done by the ABYSS_launch script''')
 	parser.add_argument('-v', '--version', action='version', version='You are using %(prog)s version: ' + version, help=\
-'display QualityAssemblage version number and exit')
+'display Quality.py version number and exit')
 
 
 	filesreq = parser.add_argument_group('Input mandatory infos for running')
-	filesreq.add_argument('-d', '--directory',type = str, required=True, dest = 'dirPath', help = 'path of directory that contains all the assembly files')
-	filesreq.add_argument('-o', '--outdir',type = str, required=True, dest = 'outdirPath', help = 'Path of the output file')
+	filesreq.add_argument('-d', '--directory',type = str, required=True, dest = 'dirPath', help = 'Path of directory that contains all the fasta assembled by ABYSS_launch (output + result)')
+	filesreq.add_argument('-o', '--outFile',type = str, required=True, dest = 'outFilePath', help = 'Path of the output file')
 
 	
 ######### Recuperation arguments ###########
 	args = parser.parse_args()
 	directory = os.path.abspath(args.dirPath)
-	outFile= os.path.abspath( args.outdirPath)
+	outFile= os.path.abspath(args.outFilePath)
+
+
+if __name__ == "__main__":
+
+	version = '0.1'
+	
+############ Argparse #####################
+	parser = argparse.ArgumentParser(prog=__file__, description='''This program is used to retrieve the quality data of the assembly done by the ABYSS_launch script''')
+	parser.add_argument('-v', '--version', action='version', version='You are using %(prog)s version: ' + version, help=\
+'display '+__file__+' version number and exit')
+
+
+	filesreq = parser.add_argument_group('Input mandatory infos for running')
+	filesreq.add_argument('-d', '--directory',type = str, required=True, dest = 'dirPath', help = 'path of directory that contains all the assembly files which assembled')
+	filesreq.add_argument('-o', '--outFile',type = str, required=True, dest = 'outFilePath', help = 'Path of the output directory')
+
+	
+######### Recuperation arguments ###########
+	args = parser.parse_args()
+	directory = args.dirPath
+	outFile= args.outFilePath
 
 
 ########### Gestion directory ##############
 	directory = verifDir(directory,True)
 
-if __name__ == "__main__":
-
-	version="0.1" 
-
 ############### start message ########################
 
 	print(form("\n\t---------------------------------------------------------",'yellow','bold'))
-	print("\t"+form("|",'yellow','bold')+form("       Welcome in QualityAssemblage (Version " + version + ")       ",type='bold')+form("|",'yellow','bold'))
+	print("\t"+form("|",'yellow','bold')+form("        Welcome in    Quality   (Version " + version + ")          ",type='bold')+form("|",'yellow','bold'))
 	print(form("\t---------------------------------------------------------",'yellow','bold')+'\n')
 
-################## Main ################################
-	f = open(outFile,'w')
-	f.write('n\tn:500\tL50\tmin\tN80\tN50\tN20\tE-size\tmax\tsum\tname\n')
-	for files in os.listdir(directory):
-		print(files+ ' in process')
-
-		Pathfile = directory+files
-		isFasta(Pathfile)
-		strain = recupId(Pathfile.split('/')[-1])
-		dico_fasta = fasta2dict(Pathfile)
-		lengthGenome = 0
-		nbScaffold = 0
-		lengthN50 = 0
-		lengthN80 = 0
-		lengthN20 = 0
-		Esize = 0
-		L50 = 0
-		n500 = 0
-		first = True
-
-
-
-
-		for elt in dico_fasta.values():
-			nbScaffold += 1
-			lengthGenome = lengthGenome +len(elt.seq)
-			Esize = Esize + (len(elt.seq)*len(elt.seq))
-			if len(elt.seq) > 500 :
-				n500 += 1
-
-
-		for elt  in sorted(dico_fasta.keys(), key=sort_human):
-			if first :
-				maxs =  len(dico_fasta[elt].seq)
-				first = False 
-			L50 += 1
-			lengthN50 = lengthN50 + len(dico_fasta[elt].seq)
-			if lengthN50 >= (lengthGenome/2) :
-				break
-		
-		N50 = len(dico_fasta[elt].seq)
-
-		for elt  in sorted(dico_fasta.keys(), key=sort_human):
-
-			lengthN80 = lengthN80 + len(dico_fasta[elt].seq)
-			if lengthN80 >= (lengthGenome*0.8) :
-				break
-		
-		N80 = len(dico_fasta[elt].seq)
-
-		for elt  in sorted(dico_fasta.keys(), key=sort_human):
-
-			lengthN20 = lengthN20 + len(dico_fasta[elt].seq)
-			if lengthN20 >= (lengthGenome*0.2) :
-				break
-		
-		N20 = len(dico_fasta[elt].seq)
-		Esize = int(Esize/lengthGenome)
-
-		f.write('%s\t%s\t%s\t500\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n'%(nbScaffold,n500,L50,N80,N50,N20,Esize,maxs,lengthGenome,strain))
-		print(files+' done')
-
-	f.close()
+############# Main #########################
+	# listeID = []
+	# for ID in os.listdir(directory) :
+	# 	listeID.append(ID)
+	# listeID.sort()
+	with open(outFile,"w") as qualityR :
+		qualityR.write("n\tn:500\tL50\tmin\tN80\tN50\tN20\tE-size\tmax\tsum\tname\n")
+		isolate = directory.split('/')[-2]#.split('_')[0]
+		# for isolate in listeID :
+		for kmers in [20,30,40,50,60,70,80,90]:
+			for file in os.listdir(f'{directory}{isolate}_{str(kmers)}'):
+				if file.endswith('-stats.tab')==True :
+					stat = open(f'{directory}{isolate}_{str(kmers)}/{file}',"r")
+					stats = stat.readlines()
+					N50 = stats[3].split('\t')
+					qualityR.write(stats[3])
 
 ############## end message ###########################
 
 	print(form("\n\t---------------------------------------------------------",'yellow','bold'))
 	print("\t"+form("|",'yellow','bold')+form("                    End of execution                   ",type='bold')+form("|",'yellow','bold'))
 	print(form("\t---------------------------------------------------------",'yellow','bold'))
+
+
 
 

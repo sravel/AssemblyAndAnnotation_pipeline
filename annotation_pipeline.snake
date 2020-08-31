@@ -11,7 +11,6 @@ from os.path import join
 configfile: 'Additional_files/config.json'
 # directory contained fasta files
 data_directory= config["datadir"]
-
 # Out directory
 output_directory = config["OutDir"]
 
@@ -26,11 +25,13 @@ suffixFile = '.fasta'
 
 # Identifiant de l'espèce
 id_souche = config["id_souche"]
+gm_keys = '/shared/home/fcharriat/magmax/Florian_MAX/AssemblyAndAnnotation_pipeline/gm_key_64'
+os.system(f'cp {gm_keys} ~/.gm_key')
 ################################################################################
 ################################################################################
 # Todo : Faire les logs, les configs cluster, et un controleur du fichier de config
 # Todo : Chagement BRAKER car containers, avoir le fichier species de augustus dans le output directory et mettre un lien path ! (Problème de droit avec singularity)
-
+config_file_augutus = './Additional_files/config_augustus/'
 ################################################################################
 # Config file for TOOGLE
 configFile = 'SupplementaryFile/tophatMapping.config.txt' # A mettre dans l'outils
@@ -40,6 +41,9 @@ prot = protRef
 ################################################################################
 # TODO parseur config pour verif + argparse ?
 # TODO suffix RNAseq, soit paramètre soit mv/ln ?
+# TODO {threads} in RepeatMasker (option -pa)
+# TODO {suffix} RNAseq + Mettre en single et/ou paired 
+# TODO Verif repeatMasker option ? 
 
 #################################################################################
 
@@ -51,8 +55,8 @@ kmere = [20,30,40,50,60,70,80,90]
 rule final:
 	input: 
 		final_data = expand(f'{output_directory}Annotation/6_final_data/{{smp}}/', smp = SAMPLES),
-		report_assembly = f'{output_directory}Assembly/2_report/report.html',
-		report_annotation = output_directory+'Annotation/7_report/report.html'
+		report_assembly = f'{output_directory}Report/Assembly/report.html',
+		report_annotation = f'{output_directory}Report/Annotation/report.html'
 
 rule ABySS_Launch:
 	"""
@@ -64,8 +68,6 @@ rule ABySS_Launch:
 		R2 = f'{data_directory}{{smp}}{suffixFileR2}'
 	output:
 		directory = directory(f'{output_directory}Assembly/1_ABySS/{{smp}}/{{smp}}_{{km}}/')
-	params :
-		suffix = suffixFileR1
 	log :
 		output = f'{log_directory}ABySS/{{smp}}_{{km}}.o',
 		error = f'{log_directory}ABySS/{{smp}}_{{km}}.e'
@@ -84,7 +86,7 @@ rule ABySS_Launch:
 	shell :
 		"""
 		cd {output} 1>> {log.output} 2>> {log.error}
-		/usr/local/bioinfo/abyss/1.9.0/bin/abyss-pe name={wildcards.smp}_{wildcards.km} k={wildcards.km} in='{input.R1} {input.R2}' -o {output}abyss_assembly_{wildcards.smp}_{wildcards.km}.fasta 1>> {log.output} 2>> {log.error}
+		abyss-pe name={wildcards.smp}_{wildcards.km} k={wildcards.km} in='{input.R1} {input.R2}' -o {output}abyss_assembly_{wildcards.smp}_{wildcards.km}.fasta 1>> {log.output} 2>> {log.error}
 		"""
 
 rule recup_stat :
@@ -95,9 +97,11 @@ rule recup_stat :
 	input :
 		lien = expand(rules.ABySS_Launch.output.directory,smp = "{smp}",km = kmere),
 	output :
-		quality_file = f'{output_directory}Assembly/3_report/data_report/{{smp}}/Quality.txt'
+		quality_file = f'{output_directory}Report/Assembly/data_report/{{smp}}/Quality.txt'
 	params :
 		outdir = f'{output_directory}Assembly/1_ABySS/{{smp}}/'
+	singularity :
+		"shub://FlorianCHA/singularity_containers:biopython"
 	message :
 		"""
 		Function : 
@@ -109,7 +113,7 @@ rule recup_stat :
 		"""+ "*" *100
 	shell :
 		"""
-		script/Quality.py -d {params.outdir} -o {output.quality_file}
+		script/QualityAssemblage.py -d {params.outdir} -o {output.quality_file}
 		"""
 
 rule summary_stat :
@@ -120,7 +124,7 @@ rule summary_stat :
 	input :
 		stat_files = expand(rules.recup_stat.output.quality_file,smp = SAMPLES)
 	output :
-		output_directory = f'{output_directory}Assembly/2_report/data_report/Quality.txt'
+		output_directory = f'{output_directory}Report/Assembly/data_report/Quality.txt'
 	message :
 		"""
 		Function : 
@@ -149,9 +153,9 @@ rule report_assembly:
 		quality_file = rules.summary_stat.output.output_directory
 	output :
 		report = rules.final.input.report_assembly,
-		select = f'{output_directory}Assembly/2_report/data_report/select.csv'
+		select = f'{output_directory}Report/Assembly/data_report/select.csv'
 	singularity:
-		"shub://FlorianCHA/singularity_containers:abyss"
+		"shub://FlorianCHA/singularity_containers:rmarkdown"
 	message :
 		"""
 		Function : 
@@ -167,11 +171,24 @@ rule report_assembly:
 		"""
 
 rule select_assemblage :
+	"""
+	This rules select the better assembly for every Isolats
+	"""
 	threads : 1
 	input :
 		file = rules.recup_stat.output.quality_file
 	output :
-		assembly_selected = f"{output_directory}Assembly/3_assembly_selected/{{smp}}.fasta"
+		assembly_selected = f"{output_directory}Assembly/2_assembly_selected/{{smp}}.fasta"
+	message :
+		"""
+		Function : 
+			- Select the best assembly between the 8 assembly
+		Input : 
+			- Quality file : {input.file}
+		Ouput : 
+			- {output.assembly_selected}
+		"""+ "*" *100
+
 	run :
 		dico_N50 = {}
 		with open(input.file,'r') as  input_file :
@@ -181,8 +198,8 @@ rule select_assemblage :
 
 		N50_max = max(dico_N50.keys())
 		fasta_select = dico_N50[N50_max]
-		new_name_fasta  = fasta_select.split('_')[0]
-		path_fasta = f'{output_directory}1_ABySS/{new_name_fasta}/{fasta_select.split("-scaffolds")[0]}/{fasta_select}'
+		new_name_fasta  = fasta_select.replace(f'_{fasta_select.split("_")[-1]}','')
+		path_fasta = f'{output_directory}Assembly/1_ABySS/{new_name_fasta}/{fasta_select.split("-scaffolds")[0]}/{fasta_select}'
 		path_new_fasta = output.assembly_selected
 		os.system('cp %s %s'%(path_fasta,path_new_fasta))
 
@@ -192,11 +209,11 @@ rule repeatMasker:
 	"""
 	This rule use repeatMasker for mask repeat element
 	"""
-	threads : 1
+	threads : 4
 	input :
 		fasta = rules.select_assemblage.output.assembly_selected
 	output :
-		directory = directory(f'{output_directory}Assembly/4_masked/{{smp}}/')
+		directory = directory(f'{output_directory}Assembly/3_masked/{{smp}}/')
 	params :
 		Et_data_base = config["ET_data_base"]
 	singularity:
@@ -223,7 +240,9 @@ rule renameFile:
 	input :
 		directory = rules.repeatMasker.output.directory
 	output :
-		fasta = f'{output_directory}5_assembly_final/{{smp}}.fasta',
+		fasta = f'{output_directory}Assembly/4_assembly_final/{{smp}}.fasta'
+	singularity :
+		"shub://FlorianCHA/singularity_containers:biopython"
 	message :
 		"""
 		Function : 
@@ -276,10 +295,10 @@ rule hisat2_alignement :
 	threads : 1
 	input : 
 		reference = rules.hisat2_index.output.new_reference_fasta,
-		rna_seq = f"rna_seq_directory{{rna}}.fq.gz"
+		rna_seq = f"{rna_seq_directory}{{rna}}.fq.gz"
 
 	output : 
-		sam =   f"{output_directory}Annotation/1_hisat2/1_alignement/{{smp}}/{{rna}}/{{smp}}_{{rna}}.sam",
+		sam =   temp(f"{output_directory}Annotation/1_hisat2/1_alignement/{{smp}}/{{rna}}/{{smp}}_{{rna}}.sam.gz"),
 		stdout =  f"{output_directory}Annotation/1_hisat2/1_alignement/{{smp}}/{{rna}}/Summary_alignement.txt"
 	params :
 		l_mem_free='10G',
@@ -299,7 +318,7 @@ rule hisat2_alignement :
 		""" + "*" *100
 	shell :
 		"""
-		hisat2 -x {params.basename} --summary-file {output.stdout} -U {input.rna_seq} -S {output.sam}  
+		hisat2 -x {params.basename} --summary-file {output.stdout} -U {input.rna_seq} | gzip -3 > {output.sam}
 		"""
 
 rule samtools :
@@ -310,8 +329,7 @@ rule samtools :
 	input :
 		sam_file = rules.hisat2_alignement.output.sam
 	output :
-		bam = f"{output_directory}Annotation/1_hisat2/1_alignement/{{smp}}/{{rna}}/{{smp}}_{{rna}}.bam",
-		sort = f"{output_directory}Annotation/1_hisat2/1_alignement/{{smp}}/{{rna}}/{{smp}}_{{rna}}_sort.bam"
+		sort = temp(f"{output_directory}Annotation/1_hisat2/1_alignement/{{smp}}/{{rna}}/{{smp}}_{{rna}}_sort.bam")
 	params : 
 		l_mem_free='10G'
 	singularity:
@@ -327,8 +345,8 @@ rule samtools :
 		""" + "*" *100
 	shell :
 		"""
-		samtools view -b {input.sam_file} > {output.bam}
-		samtools sort -o {output.sort} {output.bam}
+		        samtools view -@ {threads} -b {input.sam_file} | samtools sort -@ {threads} -o {output.sort}
+
 		"""
 
 rule merge_bam :
@@ -339,7 +357,7 @@ rule merge_bam :
 	input : 
 		bam = expand(rules.samtools.output.sort,rna=RNA,smp = "{smp}")
 	output : 
-		all_bam =  f"{output_directory}Annotation/1_hisat2/2_merge_bam_file/{{smp}}/{{smp}}.bam"
+		all_bam =  temp(f"{output_directory}Annotation/1_hisat2/2_merge_bam_file/{{smp}}/{{smp}}.bam")
 	params : 
 		directory_bam = f"{output_directory}Annotation/1_hisat2/1_alignement/{{smp}}/", # Snakemake won't input file and directory file if the input file is in the directory, so the directory is give in params
 		l_mem_free='4G'
@@ -428,7 +446,7 @@ rule bam2hints_filter :
 		path = f"{output_directory}Annotation/1_hisat2/2_merge_bam_file/{{smp}}/",
 		l_mem_free='4G'
 	singularity:
-		"shub://FlorianCHA/singularity_containers:braker"
+		"shub://FlorianCHA/singularity_containers:rmarkdown"
 	message :
 		"""
 		Function : 
@@ -525,12 +543,16 @@ rule BRAKER :
 	threads : 2
 	input : 
 		genome = rules.hisat2_index.output.new_reference_fasta,
-		hints = rules.merge_hint.output.merge_intron
+		RNA = rules.sort_bam.output.bam_sort,
+		prot = rules.exonerate.output.exonerate,
+		gm_keys = gm_keys
 	output : 
 		directory = directory(f'{output_directory}Annotation/3_Braker/{{smp}}/')
 	params : 
 		l_mem_free='10G',
-		species = id_souche
+		species = id_souche,
+		augustus = config_file_augutus
+
 	singularity:
 		"shub://FlorianCHA/singularity_containers:braker"
 	message :
@@ -539,13 +561,14 @@ rule BRAKER :
 			- Execute BRAKER for {wildcards.smp}
 		Input : 
 			- Genome file : : {input.genome}
-			- hints file : {input.hints}
+			- Prot file : {input.prot}
+			- RNA file : {input.RNA}
 		Ouput : 
 			- Directory output : {output.directory}
 		""" + "*" *100
 	shell :
 		"""
-		braker.pl --cores 2 --fungus --gff3 --species={params.species} --useexisting --genome={input.genome} --hints={input.hints} --overwrite --alternatives-from-evidence=false --workingdir={output.directory}
+		braker.pl --cores 2 --fungus --gff3 --species={params.species} --useexisting --genome={input.genome} --prot_aln={input.prot} --prg=exonerate --bam={input.RNA} --overwrite --alternatives-from-evidence=false --workingdir={output.directory} --AUGUSTUS_CONFIG_PATH={params.augustus}
 		"""
 
 rule augustus :
@@ -560,7 +583,8 @@ rule augustus :
 		gff_file = f'{output_directory}Annotation/4_Augustus/{{smp}}.gff3'
 	params : 
 		l_mem_free='4G',
-		species = id_souche
+		species = id_souche,
+		augustus = config_file_augutus
 	singularity:
 		"shub://FlorianCHA/singularity_containers:braker"
 	message :
@@ -574,7 +598,7 @@ rule augustus :
 			- gff file : {output.gff_file}
 		""" + "*" *100
 	shell : """
-	augustus --hintsfile={input.hints} --species={params.species} {input.genome} --gff3=on --outfile={output.gff_file}
+	augustus --hintsfile={input.hints} --species={params.species} {input.genome} --gff3=on --outfile={output.gff_file} --AUGUSTUS_CONFIG_PATH={params.augustus}
 	"""
 
 def input_gff(wildards):
@@ -601,8 +625,8 @@ rule merge_gff:
 	params : 
 		l_mem_free='4G',
 		species = id_souche
-	singularity:
-		"shub://FlorianCHA/singularity_containers:braker"
+	singularity :
+		"shub://FlorianCHA/singularity_containers:biopython"
 	message :
 		"""
 		Function : 
@@ -615,7 +639,7 @@ rule merge_gff:
 		""" + "*" *100
 	shell :
 		 """
-		script/mergeBraker_augustus.py  --augustus {input.augustus} --braker {input.braker}/braker/{params.species}/augustus.gff3 -o {output.merge_gff}
+		script/mergeBraker_augustus.py  --augustus {input.augustus} --braker {input.braker}/braker.gtf -o {output.merge_gff}
 		"""
 
 rule createFasta:
@@ -630,8 +654,8 @@ rule createFasta:
 		fasta_directory = f'{output_directory}Annotation/6_final_data/{{smp}}/'
 	params :
 		l_mem_free='4G'
-	singularity:
-		"shub://FlorianCHA/singularity_containers:braker"
+	singularity :
+		"shub://FlorianCHA/singularity_containers:biopython"
 	message :
 		"""
 		Function : 
@@ -644,9 +668,8 @@ rule createFasta:
 		""" + "*" *100
 	shell :
 		"""
-		script/gff2fasta.pl --gff {input.gff} --fasta {input.fasta} --prefix {output.fasta_directory}{wildcards.smp}
+		script/GFF2fasta.py --gff {input.gff} --fasta {input.fasta} --prefix {output.fasta_directory}{wildcards.smp}
 		cp {input.gff} {output.fasta_directory}
-		script/renameFasta.py -d {output.fasta_directory} -s {wildcards.smp}
 		"""
 
 
@@ -657,15 +680,15 @@ rule recuperation_Stat:
 	"""
 	threads : 1
 	input : 
-		assembly = data_directory,
-		outdir = output_directory,
+		assembly = f'{output_directory}',
+		outdir =  f'{output_directory}',
 		lien = expand(f'{output_directory}Annotation/5_merged_gff/{{smp}}_{"Augustus" if RNAseq == "" else "merge"}.gff3',smp = SAMPLES)
 
 	output : 
-		assembly = f'{output_directory}Annotation/7_report/data_report/Assembly_quality.csv',
-		annotation = f'{output_directory}Annotation/7_report/data_report/Annotation_stat.csv'
-	params : 
-		l_mem_free='4G'
+		assembly = f'{output_directory}Report/Annotation/data_report/Assembly_quality.csv',
+		annotation = f'{output_directory}Report/Annotation/data_report/Annotation_stat.csv'
+	singularity :
+		"shub://FlorianCHA/singularity_containers:biopython"
 	message :
 		"""
 		Function : 
@@ -680,8 +703,8 @@ rule recuperation_Stat:
 		""" + "*" *100
 	shell : 
 		"""
-		script/QualityAssemblage.py -d {input.assembly} -o {output.assembly}
-		script/RecupInfoGFF.py -d {input.outdir}4_mergeGFF/ -o {output.annotation} -g {input.assembly}
+		script/Quality.py -d {input.assembly}4_assembly_final -o {output.assembly}
+		script/RecupInfoGFF.py -d {input.outdir}Annotation/5_merged_gff/ -o {output.annotation} -g {input.assembly}
 		"""
 
 
@@ -699,7 +722,7 @@ rule report:
 	params :
 		l_mem_free='4G'
 	singularity:
-		"shub://FlorianCHA/singularity_containers:braker"
+		"shub://FlorianCHA/singularity_containers:rmarkdown"
 	message :
 		"""
 		Function : 
