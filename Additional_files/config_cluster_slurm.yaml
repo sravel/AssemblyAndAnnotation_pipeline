@@ -1,5 +1,6 @@
 __default__:
     n_cpu: "--ntasks=1 --cpus-per-task="
+    threads : 1
     mem: "--mem-per-cpu=4G"
     export_env: "--export=ALL"
     cwd: " "
@@ -35,6 +36,7 @@ summary_stat :
 ###### Cluster parameters for repeatMasker rules ########
 repeatMasker :
   mem: "--mem-per-cpu=5G"
+  threads : 4
 
 ###### Cluster parameters for renameFile rules ########
 renameFile :
@@ -72,6 +74,7 @@ bam2hints_filter :
 ###### Cluster parameters for exonerate rules ########
 exonerate :
    mem: "--mem-per-cpu=20G"
+   threads : 2
 
 ###### Cluster parameters for merge_hint rules ########
 merge_hint:
@@ -80,11 +83,12 @@ merge_hint:
 ###### Cluster parameters for BRAKER rules ########
 BRAKER :
    mem: "--mem-per-cpu=10G"
+   threads : 2
 
 ###### Cluster parameters for augustus rules ########
 augustus :
   mem: "--mem-per-cpu=4G"
-
+  threads : 2
 ###### Cluster parameters for merge_gff rules ########
 merge_gff :
   mem: "--mem-per-cpu=4G"
@@ -93,6 +97,10 @@ merge_gff :
 createFasta:
   mem: "--mem-per-cpu=4G"
   queue: "-p fast"
+
+###### Cluster parameters for busco rules ########
+busco:
+  mem: "--mem-per-cpu=4G"
 
 ###### Cluster parameters for recuperation_Stat rules ########
 recuperation_Stat:

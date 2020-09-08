@@ -4,6 +4,7 @@ queue :
 
 __default__:
   n_cpu: "-pe parallel_smp"
+  threads : 1
   mem: "-l mem_free=4G"
   export_env: "-V"
   cwd: "-cwd"

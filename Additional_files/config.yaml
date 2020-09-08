@@ -23,6 +23,7 @@ DATA:
     ID_SPECIES: '' # ID of species for augustus trainings, please refers to augustus main page for this option
     PROTEIN_REF: '' # Path of the protein fasta file, if you don't have this file you can kept empty this option ('')
     GM_KEY : '' # Path of the licence for Genemarks-ES (please give it at http://exon.gatech.edu/GeneMark/license_download.cgi)
+    BUSCO_LINEAGE : '' # ID of the database to use for BUSCO
 
     ##############################################################################################################################
 
