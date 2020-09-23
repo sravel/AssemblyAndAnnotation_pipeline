@@ -80,16 +80,19 @@ def verif_directory(path_directory_fasta,extension) :
         f"ERROR : They have not {extension} file in your input directory",'red', 'bold'))
 
 # Protein fasta for annotation with exonerate and ET data base for repeatMasker
-def verif_fasta_file(path_fasta) :
+def verif_fasta_file(path_fasta,type) :
     '''
     This function checks if the fasta file exists and if is a fasta file
     Parameters :
         path_fasta (str) : path of the fasta protein file
     '''
     liste_fasta_extension = ['fasta','fa','faa','fst']
-    if os.path.isfile(path_fasta) == False :
+    if os.path.isfile(path_fasta) == False and path_fasta != "" :
         raise ValueError(form(f"ERROR : The path '{path_fasta}' is not valid , please check if your file exists",'red', 'bold'))
-    if path_fasta.split('.')[-1]  in liste_fasta_extension or path_fasta.split('.')[-2] in liste_fasta_extension and path_fasta.split('.')[-1] == 'gz':
+    elif path_fasta == "" :
+        print(form(f"Warning : You don't provide a {type} file !",'orange', 'bold'))
+        return True
+    elif path_fasta.split('.')[-1]  in liste_fasta_extension or path_fasta.split('.')[-2] in liste_fasta_extension and path_fasta.split('.')[-1] == 'gz':
         return True
     else :
         raise ValueError(form(

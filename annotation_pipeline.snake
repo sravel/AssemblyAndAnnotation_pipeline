@@ -45,13 +45,13 @@ os.system(f'cp {gm_keys} ~/.gm_key')
 
 # Path to protein annotation file
 protein_reference = config["DATA"]["PROTEIN_REF"]
-verif_fasta_file(protein_reference)
+verif_fasta_file(protein_reference,'protein')
 
 # Repeat element data base
 ET_option =  config["DATA"]["REPEAT_MASKING_STEP"]
 ET_data_base = config["DATA"]["ET_DB"]
 if ET_option == 'True' or ET_option == True :
-    verif_fasta_file(ET_data_base)
+    verif_fasta_file(ET_data_base,'repeat data base')
 
 #BUSO parameters
 BUSCO_lineage = config["DATA"]["BUSCO_LINEAGE"]
@@ -59,6 +59,11 @@ verif_busco_id(BUSCO_lineage)
 # Out directory
 output_directory = config["DATA"]["OUTPUT"]
 output_directory = make_output_directory(output_directory)
+
+if protein_reference == '' and rna_seq_directory == '':
+      raise ValueError(form(
+            f"ERROR : You don't provide a protein file and rnaseq file please provide a least one of them", 'red', 'bold'))
+
 ################################################################################
 ################################################################################
 # Function
@@ -428,8 +433,7 @@ rule samtools :
         """ + "*" *100
     shell :
         """
-                samtools view -@ {threads} -b {input.sam_file} | samtools sort -@ {threads} -o {output.sort} 1> {log.output} 2> {log.error}
-
+        samtools view -@ {threads} -b {input.sam_file} | samtools sort -@ {threads} -o {output.sort} 1> {log.output} 2> {log.error}
         """
 
 rule merge_bam :
@@ -607,6 +611,8 @@ rule merge_hint:
     log :
         output = f'{log_directory}Annotation/2_hints/MergeHints/{{smp}}.o',
         error = f'{log_directory}Annotation/2_hints/MergeHints/{{smp}}.e'
+    params :
+        file = f'{"{input.rnaseq} {input.prot}" if rna_seq_directory != "" and protein_reference != "" else "{input.prot}" if rna_seq_directory == "" else "{input.prot}"}'
     singularity:
         "shub://FlorianCHA/singularity_containers:braker"
     message :
@@ -622,10 +628,19 @@ rule merge_hint:
         """ + "*" *100
     shell:
         """
-        cat {input.rnaseq} {input.prot}  1> {output.merge} 2> {log.error}
+        cat {params.file}  1> {output.merge} 2> {log.error}
         awk '/intron/' {output.merge} 1> {output.merge_intron} 2> {log.error}
         """
 
+def braker_input(wildards):
+    """
+    Launch or not RNAseq and Prot analysis depending on the presence of data
+    """
+    if rna_seq_directory != "" and protein_reference != "" :
+        return({'RNA' : rules.sort_bam.output.bam_sort ,
+                'prot' : rules.exonerate.output.exonerate})
+    else :
+        return({'rnaseq' : rules.bam2hints_filter.output.hints_filtred})
 
 rule BRAKER :
     """
@@ -633,9 +648,8 @@ rule BRAKER :
     """
     threads : get_threads('BRAKER', 2)
     input :
+        unpack(braker_input),
         genome = rules.hisat2_index.output.new_reference_fasta,
-        RNA = rules.sort_bam.output.bam_sort,
-        prot = rules.exonerate.output.exonerate,
         gm_keys = gm_keys
     output :
         directory = directory(f'{output_directory}Annotation/3_Braker/{{smp}}/')
@@ -644,7 +658,8 @@ rule BRAKER :
         error = f'{log_directory}Annotation/3_Braker/{{smp}}.e'
     params :
         species = id_souche,
-        augustus = config_file_augutus
+        augustus = config_file_augutus,
+        protein = {"--prot_aln={input.prot}" if protein_reference != '' else '' }
 
     singularity:
         "shub://FlorianCHA/singularity_containers:braker"
@@ -661,7 +676,7 @@ rule BRAKER :
         """ + "*" *100
     shell :
         """
-        braker.pl --cores 2 --fungus --gff3 --species={params.species} --useexisting --genome={input.genome} --prot_aln={input.prot} --prg=exonerate --bam={input.RNA} --overwrite --alternatives-from-evidence=false --workingdir={output.directory} --AUGUSTUS_CONFIG_PATH={params.augustus} 1> {log.output} 2> {log.error}
+        braker.pl --cores 2 --fungus --gff3 --species={params.species} --useexisting --genome={input.genome} {params.protein} --prg=exonerate --bam={input.RNA} --overwrite --alternatives-from-evidence=false --workingdir={output.directory} --AUGUSTUS_CONFIG_PATH={params.augustus} 1> {log.output} 2> {log.error}
         """
 
 rule augustus :
