@@ -1,5 +1,5 @@
 # About this Workflows
-This XXX is an automatic structural annotation workflows written in snakemake. The annotation is based on two tools
+This pipeline is an automatic structural annotation workflows written in snakemake. The annotation is based on two tools
  which uses RNA-Seq and/or protein homology information for predict coding sequence. One of this tools is BRAKER [ref
   & lien] which use GeneMark-EX [ref] and AUGUSTUS [ref]. And the other tool is Augustus [ref] alone for improve
    annotation of small coding sequences with few or no intron. Before the annotation, the repeat element of genome are
@@ -12,7 +12,7 @@ This XXX is an automatic structural annotation workflows written in snakemake. T
 For install the annotation Workflows, please use this command :
 
 ```
-git clone XXX
+git clone https://github.com/FlorianCHA/AssemblyAndAnnotation_pipeline.git
 ```
 
 This workflows use many tools for assembly, mapping, annotation and quality control. For installation of softwre two
