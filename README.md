@@ -1,10 +1,7 @@
 # About this Workflows
+
 This pipeline is an automatic structural annotation workflows written in snakemake. The annotation is based on two tools
- which uses RNA-Seq and/or protein homology information for predict coding sequence. One of this tools is BRAKER [ref
-  & lien] which use GeneMark-EX [ref] and AUGUSTUS [ref]. And the other tool is Augustus [ref] alone for improve
-   annotation of small coding sequences with few or no intron. Before the annotation, the repeat element of genome are
-    masked for avoid annotation probleme. In addition this workflows can perform a illumina assembly with ABySS using
-     différent value of kmere.  
+ which uses RNA-Seq and/or protein homology information for predict coding sequence. One of this tools is **[BRAKER](https://github.com/Gaius-Augustus/BRAKER)** which use **[GeneMark-EX](http://exon.gatech.edu/GeneMark/)** and **[AUGUSTUS](http://augustus.gobics.de/)**. And the other tool is **[AUGUSTUS](http://augustus.gobics.de/)** alone for improve annotation of small coding sequences with few or no intron. Before the annotation, the repeat element of genome are masked for avoid annotation probleme. In addition this workflows can perform a illumina assembly with ABySS using différent value of kmere.  
      
 
 #Installation 
