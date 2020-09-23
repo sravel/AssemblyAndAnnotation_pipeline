@@ -31,7 +31,7 @@ If you want download all software, please complete the software part of config.y
  * **[samtools](https://github.com/samtools/samtools)**
  * **[BRAKER](https://github.com/Gaius-Augustus/BRAKER)**
  * **[BUSCO](https://gitlab.com/ezlab/busco/-/tree/master)**
- * **R & Rmarckdown & cie and R.package !!!!!!!**
+ * **[R](https://cran.r-project.org/bin/linux/ubuntu/README.html>) & [Rmarckdown package](https://rmarkdown.rstudio.com/lesson-1.html>)**
  * **[Python >=3.7](https://www.python.org/downloads/)**
  * **[Snakemake >= 5.2](https://snakemake.readthedocs.io/en/stable/)**
  
