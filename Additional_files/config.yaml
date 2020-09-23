@@ -3,31 +3,32 @@ DATA:
     #############################################################################################################################
 
     # If you want assembly with ABySS you illumina data please complete this part else, pass this part (keep every path empty '')
-    FASTQ: '' #  Path of you directory which contain all your fastq file to assemble
-    SUFFIX_FASTQ_R1 : '' # Etension of your R1 fastq files contains in FASTQ directory (for exemple : '_R1.fastq.gz' )
-    SUFFIX_FASTQ_R2 : '' # Etension of your R2 fastq files contains in FASTQ directory (for exemple : '_R2.fastq.gz' )
+    FASTQ: '/shared/home/fcharriat/magmax/Florian_MAX/fastq/' #  Path of you directory which contain all your fastq file to assemble
+    SUFFIX_FASTQ_R1 : '_R1.fastq.gz' # Etension of your R1 fastq files contains in FASTQ directory (for exemple = '_R1.fastq.gz' )
+    SUFFIX_FASTQ_R2 : _R2.fastq.gz # Etension of your R2 fastq files contains in FASTQ directory (for exemple = '' )
 
     ##############################################################################################################################
 
     # If you have already a assembly and the previous step isn't use, you can complete this part (if the assebly part
     # is complete please pass this part (keep every path empty '')
-    FASTA: 'Data-Xoo-sub/fast5/'
-    SUFFIX_FASTA : '' # Etension of your fasta files contains in FASTQ directory (for exemple : '.fasta','.fa', etc .... )
+    FASTA: ''
+    SUFFIX_FASTA : '.fasta' # Etension of your fasta files contains in FASTQ directory (for exemple : '.fasta','.fa', etc .... )
 
     ##############################################################################################################################
 
     # Input file for the annotation step
-    ET_DB: '' # Path of the repeat element data base for repeatMasker
-    RNAseq_DIR : '' # Path of the directory which contain all RNAseq data, if you kepts this path empty this pipeline run only augustus
-    SUFFIX_RNAseq : '' # Etension of your fastq files contains in FASTQ directory (for exemple : '.fastq.gz','fq.gz','fq' , etc. )
-    ID_SPECIES: '' # ID of species for augustus trainings, please refers to augustus main page for this option
-    PROTEIN_REF: '' # Path of the protein fasta file, if you don't have this file you can kept empty this option ('')
-    GM_KEY : '' # Path of the licence for Genemarks-ES (please give it at http://exon.gatech.edu/GeneMark/license_download.cgi)
-    BUSCO_LINEAGE : '' # ID of the database to use for BUSCO
+    ET_DB: '/shared/home/fcharriat/magmax/Florian_MAX/AssemblyAndAnnotation_pipelin_old/ET_db.fasta' # Path of the repeat element data base for repeatMasker
+    REPEAT_MASKING_STEP : True
+    RNAseq_DIR : '/shared/home/fcharriat/magmax/Florian_MAX/RNAseq/' # Path of the directory which contain all RNAseq data, if you kepts this path empty this pipeline run only augustus
+    SUFFIX_RNAseq : '.fastq.gz' # Etension of your fastq files contains in FASTQ directory (for exemple = '.fastq.gz','fq.gz','fq' , etc. )
+    ID_SPECIES: 'magnaporthe_oryzae' # ID of species for augustus trainings, please refers to augustus main page for this option
+    PROTEIN_REF: '/shared/home/fcharriat/magmax/Florian_MAX/AssemblyAndAnnotation_pipelin_old/OG_filter.fasta' # Path of the protein fasta file, if you don't have this file you can kept empty this option ('')
+    GM_KEY : '/shared/home/fcharriat/magmax/Florian_MAX/AssemblyAndAnnotation_pipelin_old/gm_key_64' # Path of the licence for Genemarks-ES (please give it at http://exon.gatech.edu/GeneMark/license_download.cgi)
+    BUSCO_LINEAGE : 'sordariomycetes_odb10' # ID of the database to use for BUSCO
 
     ##############################################################################################################################
 
     # Output directory for all results of this pipeline
-    OUTPUT: ''
+    OUTPUT: '/shared/home/fcharriat/magmax/Florian_MAX/result'
 
 

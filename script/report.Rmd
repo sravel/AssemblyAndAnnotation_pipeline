@@ -1,10 +1,14 @@
 ---
-title: "Rapport"
+title: "Rapport of Annotation pipeline"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
+author : 'Florian CHARRIAT'
 params:
-   assembly: "None"
-   Annotation: "None"
+   assembly: "Assembly_quality.csv"
+   Annotation: "Annotation_stat.csv"
+   Mapping : "Report_mapping.txt"
+   busco : "Report_busco.txt"
 output:
+  rmdformats::readthedown:
   html_document:
     fig_caption: yes
     highlight: zenburn
@@ -59,158 +63,95 @@ rownames(dataQ) <- dataQ$name
 datatableQ <- dataQ[,1:10]
 ```
 
-&nbsp;
 
-#Assemblages
+#Assembly
 
+## Quality statistics
 
-##Données qualitées
+### Definition
 
-###Tableau
+Name  | definition
+------| -----------------------------------------------------------------------------------------------------------
+N50 | Taille du scaffold à partir du quel tous les scaffolds de taille supérieure ou égale couvrent 50 % du génome
+L50 | Nombre minimum de scaffold qui permet de couvrir 50% du génome
+n:500 | Nombre de scaffold total de l'assemblage de longueur supérieur à 500 nucléotides
+max | Taille maximale d'un scaffold dans l'assemblage
 
-&nbsp;
+----------
+
+### Table
+
 
 ```{R Visualisation des données brut, echo=FALSE}
-datatable(datatableQ, caption =" Tableau n°1: Tableau des statistiques de qualité de tous les assemblages",colnames = c('Id', colnames(datatableQ)),extensions = 'Buttons', options = list(dom = 'Blfrtip',buttons = c('copy', 'csv', 'excel', 'pdf', 'print'))) 
+
+# MAYBE a summary of all statitics (definition)
+
+datatable(datatableQ, caption =" Table n°1: Quality statistics of all assemblies",colnames = c('Id', colnames(datatableQ)),extensions = 'Buttons', options = list(dom = 'Blfrtip',buttons = c('copy', 'csv', 'excel', 'pdf', 'print'))) 
 ```
 
 &nbsp;
 
-###Graphique
-
-&nbsp;
-
-####Graph N50 
-
-
-```{r plot N50 général, echo=FALSE}
-ggplot(dataQ,aes(x=name,y=N50))+geom_point(col='steelblue') +
-  labs(x='',y='N50')+
-  theme(axis.text.x = element_text( face="bold",size=5, angle=90))+
-  ggtitle('Graphique n°1 : Visualisation du N50 de tous les assemblages')
-```
-
------
-
-####Graph L50
-
-```{r plot L50, echo=FALSE}
-ggplot(dataQ,aes(x=name,y=L50))+geom_point(col='steelblue') +
-  labs(x='',y='L50')+
-  theme(axis.text.x = element_text( face="bold",size=5, angle=90))+
-  ggtitle('Graphique n°2 : Visualisation du L50 de tous les assemblages')
-```
-
------
-
-####Graph E-size
-
-```{r plot E-size, echo=FALSE}
-ggplot(dataQ,aes(x=name,y=E.size))+geom_point(col='steelblue') +
-  labs(x='',y='N50')+
-  theme(axis.text.x = element_text( face="bold",size=5, angle=90))+
-  ggtitle("Graphique n°4 : Visualisation de l'E-size de tous les assemblages")
-```
-
------
-
-####Graph Longueur max
-```{r plot longuer max du contigs , echo=FALSE}
-ggplot(dataQ,aes(x=name,y=max))+geom_point(col='steelblue') +
-  labs(x='',y='Longueur Max')+
-  theme(axis.text.x = element_text( face="bold",size=5, angle=90))+
-  ggtitle('Graphique n°4 : Visualisation de la longueur max des contigs de tous les assemblages')
-
-
-```
-
------
-
-####Graph n:500
-```{r plot n500 avant selection kmere, echo=FALSE}
-ggplot(dataQ,aes(x=dataQ$name,y=dataQ$n.500))+geom_point(col='steelblue') +
-  labs(x='',y='N50')+
-  theme(axis.text.x = element_text( face="bold",size=5, angle=90))+
-  ggtitle('Visualisation du nombre de contigs supérieur à 500 pb présent dans chaque assemblage')
-```
-
-&nbsp;
-
-&nbsp;
-
-##Distribution de la longueur
-
-&nbsp;
-
-```{r plot sum avant selection kmere, echo=FALSE}
-dataQ$sum <- as.numeric(lapply(dataQ$sum, function(x) x/1000000))
-ggplot(dataQ, aes(x=sum)) +labs(x = "Longeur total de l'assemblage (mb)", y = 'Densité')+
-  geom_density(alpha=.2, fill="steelblue") + theme(axis.text.y = element_blank())
-```
-
-&nbsp;
+----------
 
 &nbsp;
 
 #Annotation
 
-&nbsp;
 
-##Tableau
+## RNA mapping
 
-&nbsp;
 
-```{R Visualisation des annotations, echo=FALSE}
+```{R RNAseq, echo=FALSE}
+dataA <- read.table(params$Mapping, header = T, sep  = '\t')
+rownames(dataA) <- dataA$X
+datatableA <- dataA[,2:ncol(dataA)]
+datatableA <- data.frame(t(apply(datatableA,1, function(x) x/100)))
+
+#Put number in percent
+datatable(datatableA, caption =" Table n°2: Summary of all mapping RNAseq for BRAKER & Augustus tools",colnames = c('Id', colnames(datatableA)),extensions = 'Buttons', options = list(dom = 'Blfrtip',buttons = c('copy', 'csv', 'excel', 'pdf', 'print'))) %>% formatPercentage(colnames(datatableA),2)%>% formatStyle(names(datatableA),
+  background = styleColorBar(range(datatableA), 'lightgreen'),
+  backgroundSize = '98% 88%',
+  backgroundRepeat = 'no-repeat',
+  backgroundPosition = 'center')
+```
+
+----------
+
+
+## Busco Quality
+
+
+```{R Busco, echo=FALSE}
+dataB <- read.table(params$busco, header = T, sep  = '\t')
+rownames(dataB ) <- dataB$X
+datatableB <- dataB[,2:ncol(dataB)]
+columns.order <- c('complete','SCO','MCO','Frag','missing','number')
+datatable.DT <- datatableB[,columns.order]
+datatable.DT <- data.frame(t(rbind(apply(datatable.DT[0:(length(datatable.DT)-1)],1, function(x) x/100),datatable.DT$number)))
+datatable(datatable.DT, caption =" Table n°3: Busco quality statistics for all annotations",colnames = c('Id','Complete gene','Single copy gene','Multiple copy gene','Fragment gene','Missing gene','Number gene used'),extensions = 'Buttons', options = list(dom = 'Blfrtip',buttons = c('copy', 'csv', 'excel', 'pdf', 'print'))) %>% 
+            formatPercentage(colnames(datatable.DT)[0:(length(colnames(datatable.DT))-1)],2)%>% formatStyle(names(datatable.DT[,0:(length(colnames(datatable.DT))-1)]),
+  background = styleColorBar(range(datatable.DT[,0:(length(colnames(datatable.DT))-1)]), 'lightgreen'),
+  backgroundSize = '98% 88%',
+  backgroundRepeat = 'no-repeat',
+  backgroundPosition = 'center')
+```
+
+----------
+
+## Annoted gene
+
+```{R Gene, echo=FALSE}
 dataA <- read.table(params$Annotation, header = T, sep  = '\t')
 rownames(dataA) <- dataA$Strain
 datatableA <- dataA[,2:ncol(dataA)]
 
-datatable(dataA, caption =" Tableau n°1: Tableau des statistiques de qualité de tous les assemblages",colnames = c('Id', colnames(datatableA)),extensions = 'Buttons', options = list(dom = 'Blfrtip',buttons = c('copy', 'csv', 'excel', 'pdf', 'print'))) 
+datatable(datatableA, caption =" Table n°4 : Origin of annotated gene" ,colnames = c('Id', 'Augustus','Braker','number of gene','Lengh mean (pb)','Length of assembly (mb)'),extensions = 'Buttons', options = list(dom = 'Blfrtip',buttons = c('copy', 'csv', 'excel', 'pdf', 'print'))) 
 ```
 
-&nbsp;
+----------
 
-&nbsp;
 
-##Visualisation de l'ensemble des annotations
-
-```{r graphique qualité Annotation, echo=FALSE}
-name <- dataA$Strain
-#Length..mean research
-select <- dataA$Length..mean < mean(dataA$Length..mean) + 2*sd(dataA$Length..mean)
-name[select] <- NA
-select <- dataA$Length..mean < mean(dataA$Length..mean) - 2*sd(dataA$Length..mean)
-name[select] <- dataA[dataA$Length..mean < mean(dataA$Length..mean) - 2*sd(dataA$Length..mean),1]
-#LNb gene research
-select <- dataA$nb.Gene < mean(dataA$nb.Gene) - sd(dataA$nb.Gene)
-name[select] <- dataA[dataA$nb.Gene < mean(dataA$nb.Gene) - sd(dataA$nb.Gene),1]
-select <- dataA$nb.Gene > mean(dataA$nb.Gene) + sd(dataA$nb.Gene)
-name[select] <- dataA[dataA$nb.Gene > mean(dataA$nb.Gene) + sd(dataA$nb.Gene),1]
-#Color
-color <- rep('steelblue',length(dataA$Length..mean))
-select <- dataA$Length..mean > mean(dataA$Length..mean) + sd(dataA$Length..mean)
-color[select] <- 'orange'
-select <- dataA$Length..mean < mean(dataA$Length..mean) - sd(dataA$Length..mean)
-color[select] <- 'orange'
-select <- dataA$Length..mean > mean(dataA$Length..mean) + 2*sd(dataA$Length..mean)
-color[select] <- 'red4'
-select <- dataA$Length..mean < mean(dataA$Length..mean) - 2*sd(dataA$Length..mean)
-color[select] <- 'red4'
-#LNb gene research
-select <- dataA$nb.Gene < mean(dataA$nb.Gene) - sd(dataA$nb.Gene)
-color[select] <- 'red4'
-select <- dataA$nb.Gene > mean(dataA$nb.Gene) + sd(dataA$nb.Gene)
-color[select] <- 'red4'
-ggplot(dataA,aes(x=nb.Gene,y=Length..mean)) + geom_point(col=color) +
-  labs(x='Nombre de gènes',y="Longueur Moyenne d'un gène") +
-  geom_text(label = name, vjust =-1, size = 3)+
-  ggtitle('Graphique n°6 : Contrôle qualité des annotations')
-
-```
-
-&nbsp;
-
-##Provenance de l'annotation
+## Mean annotation tools 
 
 &nbsp;
 

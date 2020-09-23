@@ -70,10 +70,10 @@ for folder in os.listdir(directory) :
 				posEnd =  line.split('\t')[4]
 				length = int(posEnd) - int(posStart)
 			
-				if typeLine == 'gene' and typeAnnotation == 'augustus_BGPI' :
+				if typeLine == 'gene' and typeAnnotation == 'AUGUSTUS_BGPI' :
 						nbGeneA += 1
 						lengthGene = lengthGene + length
-				if typeLine == 'gene' and typeAnnotation == 'Braker_BGPI' :
+				if typeLine == 'gene' and typeAnnotation == 'BRAKER' :
 						nbGeneB += 1
 						lengthGene = lengthGene + length
 		fastaPath = genome +'/'+name+'.fasta'

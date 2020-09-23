@@ -73,7 +73,7 @@ def renameGFF(gff_input,strainName,tools,num,gff_output) :
 					# print(geneName)
 
 					newline = "{0}\tID={1};Name={1}\n".format("\t".join(tabLine[:8]), geneName)
-					outFileGff.write(newline.replace("AUGUSTUS", tools + '_BGPI'))
+					outFileGff.write(newline.replace("AUGUSTUS", tools))
 
 				# transcript => mRNA
 				elif typeSeq == "mRNA" or typeSeq == 'transcript':

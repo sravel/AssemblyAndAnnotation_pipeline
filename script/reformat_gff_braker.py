@@ -1,7 +1,6 @@
 #!/usr/bin/env python3.7
 # -*- coding: utf-8 -*-
-# @package renameAndAddParent.py
-# @author Sebastien Ravel
+# @author Florian CHARRIAT
 
 
 

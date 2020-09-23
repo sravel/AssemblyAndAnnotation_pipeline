@@ -2,7 +2,7 @@ import glob
 import re
 import sys
 from os.path import join
-from module_config inport *
+from script.module_config import *
 
 
 ###############################################################################
@@ -13,20 +13,20 @@ configfile: 'Additional_files/config.yaml'
 wd = os.getcwd()
 # directory contained fastq files (This path must be empty if you won't asemnly)
 data_directory= config["DATA"]["FASTQ"]
-suffix_fastq_R1 = config["DATA"]["SUFFIX_FASTQ_R2"]
-suffix_fastq_R2 = config["DATA"]["SUFFIX_FASTQ_R1"]
+suffix_fastq_R1 = config["DATA"]["SUFFIX_FASTQ_R1"]
+suffix_fastq_R2 = config["DATA"]["SUFFIX_FASTQ_R2"]
 suffix_file = suffix_fastq_R1 # for the golb_wildcards function
 assembly_option = True
 
 if data_directory == '' :
     # directory contained fasta files (This path must be empty if you want asemnly)
     data_directory = config["DATA"]["FASTA"]
-    suffix_fasta = config["DATA"]["SUFFIX_FASTA"]
     data_directory = verif_directory(data_directory,suffix_fasta)
     suffix_file = suffix_fasta # for the golb_wildcards function
     assembly_option = False
 else :
     data_directory = verif_directory(data_directory,suffix_fastq_R1)
+suffix_fasta = config["DATA"]["SUFFIX_FASTA"]
 
 # RNAseq directory
 rna_seq_directory = config["DATA"]["RNAseq_DIR"]
@@ -83,7 +83,7 @@ def get_threads(rule, default):
 
 #################################################################################
 ### Create Logs directory
-log_directory = config["OutDir"] + 'LOGS/'
+log_directory = output_directory + 'LOGS/'
 liste_log = [f'{log_directory}Assembly/ABySS',f'{log_directory}Assembly/Report',f'{log_directory}Assembly/2_assembly_selected',
              f'{log_directory}Assembly/3_masked',f'{log_directory}Assembly/4_assembly_final',f'{log_directory}Annotation/1_hisat2/0_reference_fasta',
              f'{log_directory}Annotation/1_hisat2/1_alignement/alignement',f'{log_directory}Annotation/1_hisat2/1_alignement/sort',
@@ -94,7 +94,7 @@ liste_log = [f'{log_directory}Assembly/ABySS',f'{log_directory}Assembly/Report',
              f'{log_directory}Annotation/Report',f'{log_directory}BUSCO']
 
 for directory_log in liste_log :
-    if  os.direxists(directory_log) == False :
+    if  os.path.isdir(directory_log) == False :
         os.makedirs(directory_log)
 
 ######### Main code of Workflow #################################################
@@ -330,11 +330,11 @@ def input_annotation(wildards):
     Launch or not repeatMasker step and ABySS step
     """
     if assembly_option:
-        return({'reference_fasta' : rules.renameFile.output.fasta})
+        return(rules.renameFile.output.fasta)
     elif  ET_option == 'True' or ET_option == True :
-        return({'reference_fasta' : rules.repeatMasker.output.directory})
+        return(rules.repeatMasker.output.directory)
     else :
-        return({'reference_fasta' : f'{data_directory}{{smp}}{suffix_file}'})
+        return(f'{data_directory}{smp}{suffix_file}')
 
 rule hisat2_index :
     """
@@ -342,12 +342,12 @@ rule hisat2_index :
     """
     threads : get_threads('hisat2_index', 1)
     input :
-            reference_fasta = unpack(input_annotation)
+        reference_fasta = input_annotation
     output :
         new_reference_fasta = f"{output_directory}Annotation/1_hisat2/0_reference_fasta/{{smp}}{suffix_fasta}"
     params :
         reference_index_output =  f"{output_directory}Annotation/1_hisat2/0_reference_fasta/{{smp}}", # This line is used in command, the tools want a prefix and not the entire file name
-        ET_step = f'{"{{smp}}.fasta.masked" if ET_option == "True" or ET_option == True else ""}' # Add extension file if you begin with repeatMasker step.
+        ET_step = f'{"{{smp}}.fasta.masked" if ET_option in ["True",True] and assembly_option == False else ""}' # Add extension file if you begin with repeatMasker step.
     log :
         output = f'{log_directory}Annotation/1_hisat2/0_reference_fasta/{{smp}}.o',
         error = f'{log_directory}Annotation/1_hisat2/0_reference_fasta/{{smp}}.e'
@@ -460,7 +460,7 @@ rule merge_bam :
     shell :
         """
         cd {params.directory_bam} 1> {log.output} 2> {log.error}
-        ls */*_sort.bam > bamList 1>> {log.output} 2>> {log.error}
+        ls */*_sort.bam | tee bamList 1>> {log.output} 2>> {log.error}
         samtools merge -f -b bamList -c {output} 1>> {log.output} 2>> {log.error}
         """
 
@@ -693,9 +693,9 @@ rule augustus :
             - gff file : {output.gff_file}
         """ + "*" *100
     shell :
-    """
-    augustus --hintsfile={input.hints} --species={params.species} {input.genome} --gff3=on --outfile={output.gff_file} --AUGUSTUS_CONFIG_PATH={params.augustus} 1> {log.output} 2> {log.error}
-    """
+        """
+        augustus --hintsfile={input.hints} --species={params.species} {input.genome} --gff3=on --outfile={output.gff_file} --AUGUSTUS_CONFIG_PATH={params.augustus} 1> {log.output} 2> {log.error}
+        """
 
 def input_gff(wildards):
     """
@@ -749,7 +749,7 @@ rule createFasta:
         gff = rules.merge_gff.output.merge_gff,
         fasta = rules.hisat2_index.output.new_reference_fasta
     output :
-        fasta_directory = f'{output_directory}Annotation/6_final_data/{{smp}}/'
+        fasta_directory = directory(f'{output_directory}Annotation/6_final_data/{{smp}}/')
     log :
         output = f'{log_directory}Annotation/6_final_data/{{smp}}.o',
         error = f'{log_directory}Annotation/6_final_data/{{smp}}.e'
@@ -778,31 +778,31 @@ rule busco:
     threads : get_threads('busco', 1)
     input :
         protein = f'{output_directory}Annotation/6_final_data/{{smp}}/',
-        genome = rules.hisat2_index.output.new_reference_fasta
     output :
-        annotation_stat = f'{output_directory}Report/Annotation/BUSCO/{{smp}}/{{smp}}_annotation.txt',
-        assembly_stat = f'{output_directory}Report/Annotation/BUSCO/{{smp}}/{{smp}}_assembly.txt',
+        annotation_stat = directory(f'{output_directory}Report/Annotation/BUSCO/{{smp}}/'),
     params :
-        modèle = BUSCO_lineage
+        model = BUSCO_lineage,
+	    output_directory = f'{output_directory}Report/Annotation/BUSCO/',
+        augustus = config_file_augutus
     log :
         output = f'{log_directory}BUSCO/{{smp}}.o',
         error = f'{log_directory}BUSCO/{{smp}}.e'
     singularity :
-        "shub://FlorianCHA/singularity_containers:biopython"
+        "shub://FlorianCHA/singularity_containers:busco"
     message :
         """
         Function : 
-            - Create fasta file from gff file of {wildcards.smp}
+            - Use buso for retrieve quality of {wildcards.smp}
         Input : 
-            - gff file : : {input.gff}
-            - fasta file : {input.fasta}
+            - protein file : : {input.protein}
         Ouput : 
-            - fasta directory  :{output.fasta_directory}
+	        - annotation quality : {output.annotation_stat}	
         """ + "*" *100
     shell :
         """ 
-        busco -i {input.protein}{wildcards.smp}.fasta -l {params.model} -o {output.annotation_stat} -m proteins --offline 1> {log.output} 2> {log.error}
-        busco -i {input.genome} -l {params.model} -o {output.assembly_stat} -m genome --offline 1>> {log.output} 2>> {log.error}
+        export AUGUSTUS_CONFIG_PATH="{params.augustus}"
+        cd {params.output_directory}
+        busco -i {input.protein}{wildcards.smp}_protein.fasta -l {params.model} -f -o {wildcards.smp} -m proteins 1> {log.output} 2> {log.error}
         """
 
 
@@ -814,10 +814,15 @@ rule recuperation_Stat:
     input :
         assembly = f'{output_directory}',
         outdir =  f'{output_directory}',
-        lien = expand(f'{output_directory}Annotation/5_merged_gff/{{smp}}_{"Augustus" if rna_seq_directory == "" else "merge"}.gff3',smp = SAMPLES)
+        lien = expand(rules.busco.output.annotation_stat,smp = SAMPLES)
     output :
         assembly = f'{output_directory}Report/Annotation/data_report/Assembly_quality.csv',
-        annotation = f'{output_directory}Report/Annotation/data_report/Annotation_stat.csv'
+        annotation = f'{output_directory}Report/Annotation/data_report/Annotation_stat.csv',
+        rnaseq = f'{output_directory}Report/Annotation/data_report/Report_mapping.txt',
+        busco =  f'{output_directory}Report/Annotation/data_report/Report_busco.txt'
+    params :
+        database = BUSCO_lineage ,
+        prefix = f'{output_directory}Report/Annotation/data_report/Report'
     log :
         output = f'{log_directory}Annotation/Report/Quality.o',
         error = f'{log_directory}Annotation/Report/Quality.e'
@@ -837,8 +842,9 @@ rule recuperation_Stat:
         """ + "*" *100
     shell :
         """
-        script/Quality.py -d {input.assembly}4_assembly_final -o {output.assembly} 1> {log.output} 2> {log.error}
-        script/RecupInfoGFF.py -d {input.outdir}Annotation/5_merged_gff/ -o {output.annotation} -g {input.assembly} 1>> {log.output} 2>> {log.error}
+        script/Quality.py -d {input.assembly}Annotation/1_hisat2/0_reference_fasta/ -o {output.assembly}
+        script/RecupInfoGFF.py -d {input.outdir}Annotation/5_merged_gff/ -o {output.annotation} -g {input.assembly}Annotation/1_hisat2/0_reference_fasta/
+        script/retrieve_annotation_quality.py -a {input.outdir}Annotation/1_hisat2/1_alignement/ -b {input.outdir}Report/Annotation/BUSCO/ -db {params.database} -p {params.prefix}
         """
 
 
@@ -849,7 +855,10 @@ rule report:
     threads : get_threads('report', 1)
     input:
         assembly = rules.recuperation_Stat.output.assembly,
-        annotation = rules.recuperation_Stat.output.annotation
+        annotation = rules.recuperation_Stat.output.annotation,
+        busco = rules.recuperation_Stat.output.busco,
+        mapping = rules.recuperation_Stat.output.rnaseq
+
     output:
         report = rules.final.input.report_annotation
     log :
@@ -869,5 +878,5 @@ rule report:
         """ + "*" *100
     shell :
         """
-        Rscript -e 'rmarkdown::render("script/report.Rmd", output_file="{output}", quiet=TRUE, params = list(assembly = "{input.assembly}", Annotation = "{input.annotation}"))'  1> {log.output} 2> {log.error}
+        Rscript -e 'rmarkdown::render("script/report.Rmd", output_file="{output}", quiet=TRUE, params = list(assembly = "{input.assembly}", Annotation = "{input.annotation}", Mapping = "{input.mapping}", busco = "{input.busco}"))'  1> {log.output} 2> {log.error}
         """

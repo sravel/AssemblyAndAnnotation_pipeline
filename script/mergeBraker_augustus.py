@@ -161,7 +161,7 @@ if __name__ == "__main__":
 	f.close()
 	print('Write new gff3 for augustus : Done')
 	# Rename augustus gff for obtain the same ID in the new gff merge
-	renameGFF(gff_input = f'{augustusPath}{name}_prov.gff3' , strainName = name, tools = 'AUGUSTUS', num =int(numberGeneBraker), gff_output = f'{augustusPath}{name}_augustus.gff3')
+	renameGFF(gff_input = f'{augustusPath}{name}_prov.gff3' , strainName = name, tools = 'AUGUSTUS', num = (int(numberGeneBraker)+1), gff_output = f'{augustusPath}{name}_augustus.gff3')
 	os.system('rm %s'%(augustusPath+name+'_prov.gff3'))
 	# Concat the two gff
 	os.system('cat %s%s_braker.gff3 %s%s_augustus.gff3 > %s'%(brakerPath,name,augustusPath,name,outFile))
