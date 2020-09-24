@@ -632,7 +632,7 @@ rule merge_hint:
         awk '/intron/' {output.merge} 1> {output.merge_intron} 2> {log.error}
         """
 
-def braker_input(wildards):
+def braker_input(wilcards):
     """
     Launch or not RNAseq and Prot analysis depending on the presence of data
     """
