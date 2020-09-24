@@ -586,7 +586,7 @@ rule exonerate :
         exonerate2hints.pl --source=M --minintronlen=10 --maxintronlen=1000 --in={output.exonerate} --out={output.hints} 1> {log.output} 2> {log.error}
         """
 
-def input_hints(wildards):
+def input_hints(wilcards):
     """
     Launch or not RNAseq and Prot analysis depending on the presence of data
     """
@@ -712,7 +712,7 @@ rule augustus :
         augustus --hintsfile={input.hints} --species={params.species} {input.genome} --gff3=on --outfile={output.gff_file} --AUGUSTUS_CONFIG_PATH={params.augustus} 1> {log.output} 2> {log.error}
         """
 
-def input_gff(wildards):
+def input_gff(wilcards):
     """
     Launch or not braker depending on the presence of RNAseq data
     """
