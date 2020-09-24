@@ -330,7 +330,7 @@ rule renameFile:
         script/formatFastaName.py -f {input.directory}{wildcards.smp}.fasta.masked -k g -l 500 -o {output.fasta} 1> {log.output} 2> {log.error}
         """
 
-def input_annotation(wildards):
+def input_annotation(wilcards):
     """
     Launch or not repeatMasker step and ABySS step
     """
