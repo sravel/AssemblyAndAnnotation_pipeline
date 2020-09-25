@@ -18,6 +18,10 @@ suffix_fastq_R2 = config["DATA"]["SUFFIX_FASTQ_R2"]
 suffix_file = suffix_fastq_R1 # for the golb_wildcards function
 assembly_option = True
 
+
+## Make function for repeatMasker !!
+
+suffix_fasta = config["DATA"]["SUFFIX_FASTA"]
 if data_directory == '' :
     # directory contained fasta files (This path must be empty if you want asemnly)
     data_directory = config["DATA"]["FASTA"]
@@ -26,7 +30,6 @@ if data_directory == '' :
     assembly_option = False
 else :
     data_directory = verif_directory(data_directory,suffix_fastq_R1)
-suffix_fasta = config["DATA"]["SUFFIX_FASTA"]
 
 # RNAseq directory
 rna_seq_directory = config["DATA"]["RNAseq_DIR"]
