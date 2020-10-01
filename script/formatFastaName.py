@@ -102,8 +102,8 @@ if __name__ == "__main__":
 	print('Start time: ', start_time,'\n')
 
 	# Récupère le fichier de conf passer en argument
-	fastaFile =  os.path.abspath((args.fastaFile)
-	outputfilename =  os.path.abspath((args.paramoutfile)
+	fastaFile =  os.path.abspath(args.fastaFile)
+	outputfilename =  os.path.abspath(args.paramoutfile)
 	lenSize = args.lenSize
 	keep = args.keep
 

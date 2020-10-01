@@ -264,7 +264,7 @@ rule select_assemblage :
         with open(input.file,'r') as  input_file :
             entete = input_file.readline()
             for line in input_file :
-                dico_N50[line.split('\t')[5]] = line.split('\t')[-1].replace('\n','') # Permet de faire un dico avec comme clé le N50 et en value le fichier correspondant
+                dico_N50[int(line.split('\t')[5])] = line.split('\t')[-1].replace('\n','') # Permet de faire un dico avec comme clé le N50 et en value le fichier correspondant
 
         N50_max = max(dico_N50.keys())
         fasta_select = dico_N50[N50_max]
