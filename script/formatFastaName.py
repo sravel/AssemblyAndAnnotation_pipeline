@@ -53,7 +53,7 @@
 import sys, os
 current_dir = os.path.dirname(os.path.abspath(__file__))+"/"
 sys.path.insert(1,current_dir+'../modules/')
-from MODULES_SEB import fasta2dict, lenSeq2dict, relativeToAbsolutePath, sort_human,existant_file
+from module_Flo import lenSeq2dict
 
 ## Python modules
 import argparse
@@ -85,7 +85,7 @@ if __name__ == "__main__":
 
 
 	filesreq = parser.add_argument_group('Input mandatory infos for running')
-	filesreq.add_argument('-f', '--fasta', metavar="<filename>",type=existant_file, required=True, dest = 'fastaFile', help = 'Fasta files')
+	filesreq.add_argument('-f', '--fasta', metavar="<filename>",type=str, required=True, dest = 'fastaFile', help = 'Fasta files')
 	filesreq.add_argument('-o', '--out', metavar="<filename>", required=True, dest = 'paramoutfile', help = 'Name of output')
 
 
@@ -102,8 +102,8 @@ if __name__ == "__main__":
 	print('Start time: ', start_time,'\n')
 
 	# Récupère le fichier de conf passer en argument
-	fastaFile = relativeToAbsolutePath(args.fastaFile)
-	outputfilename = relativeToAbsolutePath(args.paramoutfile)
+	fastaFile =  os.path.abspath((args.fastaFile)
+	outputfilename =  os.path.abspath((args.paramoutfile)
 	lenSize = args.lenSize
 	keep = args.keep
 

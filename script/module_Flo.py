@@ -155,7 +155,19 @@ def fasta2dict(filename):
 	with open(filename, "rU") as fastaFile:
 		return SeqIO.to_dict(SeqIO.parse(fastaFile, "fasta"))
 	
-	
+def lenSeq2dict(filename):
+	"""
+	Function that take a file name (fasta), and return a dictionnary with length of sequence
+	"""
+
+	dicoLenMGG = {}
+	record_dict = fasta2dict(filename)
+	for gene in sorted(record_dict.keys(), key=sort_human):
+		if record_dict[gene].id not in dicoLenMGG:
+			lenseq = len(record_dict[gene].seq)
+			dicoLenMGG[gene]=int(lenseq)
+	return dicoLenMGG
+
 class parseGFF():
 	"""
 	Parser of GFF3 file write in python.
