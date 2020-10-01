@@ -46,7 +46,6 @@ import glob, re
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
-from Bio.Alphabet import SingleLetterAlphabet, IUPAC, Gapped
 from Bio import AlignIO
 from Bio.Nexus import Nexus
 
