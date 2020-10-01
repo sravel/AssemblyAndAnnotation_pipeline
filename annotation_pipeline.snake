@@ -268,6 +268,7 @@ rule select_assemblage :
 
         N50_max = max(dico_N50.keys())
         fasta_select = dico_N50[N50_max]
+	print(fasta_select)
         new_name_fasta  = fasta_select.replace(f'_{fasta_select.split("_")[-1]}','')
         path_fasta = f'{output_directory}Assembly/1_ABySS/{new_name_fasta}/{fasta_select.split("-scaffolds")[0]}/{fasta_select}'
         path_new_fasta = output.assembly_selected
