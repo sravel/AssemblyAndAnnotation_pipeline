@@ -53,7 +53,7 @@
 import sys, os
 current_dir = os.path.dirname(os.path.abspath(__file__))+"/"
 sys.path.insert(1,current_dir+'../modules/')
-from module_Flo import lenSeq2dict
+from module_Flo import fasta2dict,lenSeq2dict
 
 ## Python modules
 import argparse
