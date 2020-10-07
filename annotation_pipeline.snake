@@ -387,7 +387,7 @@ rule hisat2_alignement :
         reference = rules.hisat2_index.output.new_reference_fasta,
         rna_seq = f"{rna_seq_directory}{{rna}}{suffix_RNAseq}"
     output :
-        sam =   temp(f"{output_directory}Annotation/1_hisat2/1_alignement/{{smp}}/{{rna}}/{{smp}}_{{rna}}.sam.gz"),
+        bam =   temp(f"{output_directory}Annotation/1_hisat2/1_alignement/{{smp}}/{{rna}}/{{smp}}_{{rna}}.bam"),
         stdout =  f"{output_directory}Annotation/1_hisat2/1_alignement/{{smp}}/{{rna}}/Summary_alignement.txt"
     params :
         basename =  f"{output_directory}Annotation/1_hisat2/0_reference_fasta/{{smp}}"
@@ -404,12 +404,12 @@ rule hisat2_alignement :
             - Reference : {input.reference}
             - RNAseq : {input.rna_seq}
         Ouput : 
-            - sam file : {output.sam}
+            - sam file : {output.bam}
             - summary alignement : {output.stdout}
         """ + "*" *100
     shell :
         """
-        hisat2 -x {params.basename} --summary-file {output.stdout} -U {input.rna_seq} | gzip -3 1> {output.sam} 2> {log.error}
+        hisat2 --no-unal -x {params.basename} --summary-file {output.stdout} -U {input.rna_seq} |  samtools view -@ {threads} -F 4 -bh | samtools sort -@ {threads} -o {output.bam}
         """
 
 rule samtools :
@@ -418,7 +418,7 @@ rule samtools :
     """
     threads : get_threads('samtools', 1)
     input :
-        sam_file = rules.hisat2_alignement.output.sam
+        sam_file = rules.hisat2_alignement.output.bam
     output :
         sort = temp(f"{output_directory}Annotation/1_hisat2/1_alignement/{{smp}}/{{rna}}/{{smp}}_{{rna}}_sort.bam")
     log :
@@ -437,7 +437,7 @@ rule samtools :
         """ + "*" *100
     shell :
         """
-        samtools view -@ {threads} -b {input.sam_file} | samtools sort -@ {threads} -o {output.sort} 1> {log.output} 2> {log.error}
+        samtools view -@ {threads} -F 4 -b {input.sam_file} | samtools sort -@ {threads} -o {output.sort} 1> {log.output} 2> {log.error}
         """
 
 rule merge_bam :
@@ -446,7 +446,7 @@ rule merge_bam :
     """
     threads : get_threads('merge_bam', 1)
     input :
-        bam = expand(rules.samtools.output.sort,rna=RNA,smp = "{smp}")
+        bam = expand(rules.hisat2_alignement.output.bam,rna=RNA,smp = "{smp}")
     output :
         all_bam =  temp(f"{output_directory}Annotation/1_hisat2/2_merge_bam_file/{{smp}}/{{smp}}.bam")
     params :
@@ -468,8 +468,8 @@ rule merge_bam :
     shell :
         """
         cd {params.directory_bam} 1> {log.output} 2> {log.error}
-        ls */*_sort.bam | tee bamList 1>> {log.output} 2>> {log.error}
-        samtools merge -f -b bamList -c {output} 1>> {log.output} 2>> {log.error}
+        ls */*.bam | tee bamList 1>> {log.output} 2>> {log.error}
+        samtools merge -f -b bamList -c  | samtools sort -o  {output.all_bam}  1>> {log.output} 2>> {log.error}
         """
 
 rule sort_bam :
@@ -506,7 +506,7 @@ rule bam2hints :
     """
     threads : get_threads('bam2hints', 1)
     input :
-        bam_file_sorted = rules.sort_bam.output.bam_sort
+        bam_file_sorted = rules.merge_bam.output.all_bam
     output :
         hints =  f"{output_directory}Annotation/1_hisat2/2_merge_bam_file/{{smp}}/hints_{{smp}}.raw.bam"
     log :
@@ -663,7 +663,7 @@ rule BRAKER :
     params :
         species = id_souche,
         augustus = config_file_augutus,
-        protein = {"--prot_aln={input.prot}" if protein_reference != '' else '' }
+        protein = f'{f"--prot_aln={output_directory}Annotation/2_hints/ProtHints/exonerate_{{smp}}.gff3" if protein_reference != "" else "" }'
 
     singularity:
         "shub://FlorianCHA/singularity_containers:braker"
