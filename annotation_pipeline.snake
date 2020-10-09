@@ -508,7 +508,7 @@ rule bam2hints :
     input :
         bam_file_sorted = rules.merge_bam.output.all_bam
     output :
-        hints =  f"{output_directory}Annotation/1_hisat2/2_merge_bam_file/{{smp}}/hints_{{smp}}.raw.bam"
+        hints =  temp(f"{output_directory}Annotation/1_hisat2/2_merge_bam_file/{{smp}}/hints_{{smp}}.raw.bam")
     log :
         output = f'{log_directory}Annotation/1_hisat2/2_merge_bam_file/hints/{{smp}}.o',
         error = f'{log_directory}Annotation/1_hisat2/2_merge_bam_file/hints/{{smp}}.e'
@@ -641,7 +641,7 @@ def braker_input(wilcards):
     Launch or not RNAseq and Prot analysis depending on the presence of data
     """
     if rna_seq_directory != "" and protein_reference != "" :
-        return({'RNA' : rules.merge_bam.output.a ,
+        return({'RNA' : rules.merge_bam.output.all_bam ,
                 'prot' : rules.exonerate.output.exonerate})
     else :
         return({'rnaseq' : rules.bam2hints_filter.output.hints_filtred})
