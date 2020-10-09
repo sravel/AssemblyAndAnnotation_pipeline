@@ -57,7 +57,7 @@ samtools :
 
  ###### Cluster parameters for merge_bam rules ########
 merge_bam :
-  mem: "--mem-per-cpu=10G"
+  mem: "--mem-per-cpu=20G"
 
 ###### Cluster parameters for sort_bam rules ########
 sort_bam :

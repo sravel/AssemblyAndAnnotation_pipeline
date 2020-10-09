@@ -469,7 +469,7 @@ rule merge_bam :
         """
         cd {params.directory_bam} 1> {log.output} 2> {log.error}
         ls */*.bam | tee bamList 1>> {log.output} 2>> {log.error}
-        samtools merge -f -b bamList -c  | samtools sort -o  {output.all_bam}  1>> {log.output} 2>> {log.error}
+        samtools merge -f -b bamList -c - | samtools sort -o  {output.all_bam}  1>> {log.output} 2>> {log.error}
         """
 
 rule sort_bam :
@@ -641,7 +641,7 @@ def braker_input(wilcards):
     Launch or not RNAseq and Prot analysis depending on the presence of data
     """
     if rna_seq_directory != "" and protein_reference != "" :
-        return({'RNA' : rules.sort_bam.output.bam_sort ,
+        return({'RNA' : rules.merge_bam.output.a ,
                 'prot' : rules.exonerate.output.exonerate})
     else :
         return({'rnaseq' : rules.bam2hints_filter.output.hints_filtred})
