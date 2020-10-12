@@ -616,7 +616,7 @@ rule merge_hint:
         output = f'{log_directory}Annotation/2_hints/MergeHints/{{smp}}.o',
         error = f'{log_directory}Annotation/2_hints/MergeHints/{{smp}}.e'
     params :
-        file = f'{"{input.rnaseq} {input.prot}" if rna_seq_directory != "" and protein_reference != "" else "{input.prot}" if rna_seq_directory == "" else "{input.prot}"}'
+        file = f'{f"{input.rnaseq} {input.prot}" if rna_seq_directory != "" and protein_reference != "" else {input.prot} if rna_seq_directory == "" else {input.rnaseq}}'
     singularity:
         "shub://FlorianCHA/singularity_containers:braker"
     message :
